@@ -1,0 +1,175 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  OWNER
+  ADMIN
+  EDITOR
+  VIEWER
+}
+
+enum Plan {
+  FREE
+  STARTER
+  PRO
+}
+
+enum SocialProvider {
+  LINKEDIN
+  FACEBOOK
+  INSTAGRAM
+  TIKTOK
+  TWITTER
+}
+
+enum PostStatus {
+  DRAFT
+  SCHEDULED
+  PUBLISHING
+  PUBLISHED
+  FAILED
+}
+
+model Tenant {
+  id                    String          @id @default(cuid())
+  slug                  String          @unique
+  name                  String
+  plan                  Plan            @default(FREE)
+  // Onboarding progress for the tenant
+  onboardingCompletedAt DateTime?
+  onboardingStep        String          @default("welcome") // welcome | verify | connect | first_post | done
+  createdAt             DateTime        @default(now())
+  updatedAt             DateTime        @updatedAt
+
+  memberships           Membership[]
+  accounts              SocialAccount[]
+  posts                 Post[]
+  mediaAssets           MediaAsset[]
+}
+
+model User {
+  id                String              @id @default(cuid())
+  email             String              @unique
+  passwordHash      String
+  name              String?
+  emailVerifiedAt   DateTime?
+  createdAt         DateTime            @default(now())
+  updatedAt         DateTime            @updatedAt
+
+  memberships       Membership[]
+  emailVerifications EmailVerification[]
+}
+
+model EmailVerification {
+  id        String   @id @default(cuid())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId    String
+  // Hashed token (sha256) — the raw token is sent by email and never stored.
+  tokenHash String   @unique
+  expiresAt DateTime
+  consumedAt DateTime?
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+}
+
+model Membership {
+  id        String   @id @default(cuid())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId    String
+  tenant    Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  tenantId  String
+  role      Role     @default(EDITOR)
+  createdAt DateTime @default(now())
+
+  @@unique([userId, tenantId])
+  @@index([tenantId])
+}
+
+model SocialAccount {
+  id              String         @id @default(cuid())
+  tenant          Tenant         @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  tenantId        String
+  provider        SocialProvider
+  // Provider-side identifier (LinkedIn URN, Facebook page id, IG business id, TikTok open_id…)
+  providerUserId  String
+  displayName     String?
+  avatarUrl       String?
+  // Encrypted with TOKEN_ENCRYPTION_KEY (AES-256-GCM)
+  accessToken     String
+  refreshToken    String?
+  expiresAt       DateTime?
+  scopes          String?
+  // Provider-specific extras (page id, IG business id, …) as JSON
+  metadata        Json?
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+
+  postTargets     PostTarget[]
+
+  @@unique([tenantId, provider, providerUserId])
+  @@index([tenantId])
+}
+
+model Post {
+  id            String       @id @default(cuid())
+  tenant        Tenant       @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  tenantId      String
+  authorUserId  String
+  content       String       @db.Text
+  status        PostStatus   @default(DRAFT)
+  scheduledAt   DateTime?
+  publishedAt   DateTime?
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
+
+  media         MediaAsset[]
+  targets       PostTarget[]
+
+  @@index([tenantId, status])
+  @@index([tenantId, scheduledAt])
+}
+
+model PostTarget {
+  id              String         @id @default(cuid())
+  post            Post           @relation(fields: [postId], references: [id], onDelete: Cascade)
+  postId          String
+  account         SocialAccount  @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  accountId       String
+  status          PostStatus     @default(SCHEDULED)
+  // Provider-side post id once published (e.g. LinkedIn URN, FB post id)
+  providerPostId  String?
+  providerUrl     String?
+  errorMessage    String?
+  attempts        Int            @default(0)
+  publishedAt     DateTime?
+
+  @@unique([postId, accountId])
+  @@index([status])
+}
+
+model MediaAsset {
+  id          String   @id @default(cuid())
+  tenant      Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  tenantId    String
+  post        Post?    @relation(fields: [postId], references: [id], onDelete: SetNull)
+  postId      String?
+  filename    String
+  mimeType    String
+  sizeBytes   Int
+  // Local path or S3 key
+  storageKey  String
+  width       Int?
+  height      Int?
+  durationSec Int?
+  createdAt   DateTime @default(now())
+
+  @@index([tenantId])
+  @@index([postId])
+}

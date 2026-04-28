@@ -1,0 +1,22 @@
+{
+	email {$LETSENCRYPT_EMAIL}
+}
+
+{$APP_DOMAIN} {
+	encode zstd gzip
+
+	# API routes go to the NestJS backend
+	handle_path /api/* {
+		reverse_proxy api:3001
+	}
+
+	# Everything else goes to the Next.js frontend
+	handle {
+		reverse_proxy web:3000
+	}
+
+	log {
+		output stdout
+		format console
+	}
+}

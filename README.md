@@ -1,0 +1,211 @@
+# Community
+
+Plateforme **multi-tenant** de publication automatisée sur les réseaux sociaux : LinkedIn, Facebook, Instagram, TikTok (extensible). Cette application gère plusieurs organisations (tenants) via une seule installation, chaque tenant disposant de ses propres utilisateurs, comptes sociaux et calendrier de publications.
+
+---
+
+## Architecture
+
+```
+┌──────────┐  HTTPS  ┌──────────┐
+│  Caddy   │────────▶│  Next.js │  (web UI — port 3000)
+│ (auto    │         └──────────┘
+│  Let's   │   /api   ┌──────────┐
+│  Encrypt)│─────────▶│  NestJS  │  (REST API — port 3001)
+└──────────┘          └─────┬────┘
+                            │
+              ┌─────────────┼─────────────┐
+              ▼             ▼             ▼
+         PostgreSQL       Redis        Worker
+         (data)         (queues)    (BullMQ — publishing)
+```
+
+| Composant       | Rôle                                                     |
+|-----------------|----------------------------------------------------------|
+| `apps/web`      | Next.js 14 (App Router) — interface utilisateur          |
+| `apps/api`      | NestJS — REST API, OAuth, multi-tenant, scheduler        |
+| Worker          | Même image que `api` (`ROLE=worker`) — exécute la queue  |
+| PostgreSQL 16   | Persistance (Prisma)                                     |
+| Redis 7         | File d'attente BullMQ + cache                            |
+| Caddy 2         | Reverse proxy + HTTPS automatique                        |
+
+---
+
+## Démarrage rapide (Ubuntu 24.04)
+
+```bash
+git clone <ton-repo> community
+cd community
+
+# Installe Docker + UFW + secrets, build, démarre
+sudo APP_DOMAIN=community.example.com LETSENCRYPT_EMAIL=admin@example.com bash install.sh
+```
+
+Le script :
+1. installe Docker Engine + plugin Compose,
+2. ouvre les ports 22/80/443 sur UFW,
+3. génère un `.env` avec des secrets aléatoires,
+4. construit les images et lance le stack.
+
+Pointe ensuite ton DNS A vers l'IP du serveur. Caddy émettra automatiquement un certificat Let's Encrypt.
+
+### Sans domaine (test local)
+
+```bash
+cp .env.example .env
+# Remplis APP_DOMAIN=localhost et utilise http (Caddy ne pourra pas faire HTTPS)
+docker compose up -d
+```
+
+---
+
+## Configuration des providers sociaux
+
+Chaque réseau social nécessite que **tu** crées une application développeur et fournisses son client ID / secret dans `.env`. Sans ces credentials, le bouton « Connecter » s'affichera mais l'OAuth échouera.
+
+### LinkedIn — Marketing Developer Platform
+1. Crée une app sur https://www.linkedin.com/developers/apps
+2. Active le produit **Sign In with LinkedIn using OpenID Connect** + **Share on LinkedIn**
+3. Pour publier des posts company il faut demander l'accès au produit **Marketing Developer Platform** (review LinkedIn — quelques jours)
+4. URL de redirection : `https://<ton-domaine>/api/social/linkedin/callback`
+5. Renseigne `LINKEDIN_CLIENT_ID`, `LINKEDIN_CLIENT_SECRET`, `LINKEDIN_REDIRECT_URI`
+
+### Meta (Facebook + Instagram) — Graph API
+1. Crée une app sur https://developers.facebook.com/apps (type *Business*)
+2. Ajoute les produits **Facebook Login** et **Instagram Graph API**
+3. Permissions à demander : `pages_show_list`, `pages_manage_posts`, `pages_read_engagement`, et pour IG `instagram_basic`, `instagram_content_publish`, `business_management`
+4. URL OAuth de redirection : `https://<ton-domaine>/api/social/meta/callback` (utilisée par les routes `/facebook/callback` et `/instagram/callback`)
+5. Pour Instagram, le compte cible doit être un **compte business** lié à une **Page Facebook**
+6. Renseigne `META_APP_ID`, `META_APP_SECRET`, `META_REDIRECT_URI`
+7. Avant la mise en production : **App Review** (validation Meta).
+
+### TikTok — Content Posting API
+1. Crée une app sur https://developers.tiktok.com/apps
+2. Ajoute le produit **Login Kit** + **Content Posting API**
+3. Scopes : `user.info.basic`, `video.publish`, `video.upload`
+4. URL de redirection : `https://<ton-domaine>/api/social/tiktok/callback`
+5. Renseigne `TIKTOK_CLIENT_KEY`, `TIKTOK_CLIENT_SECRET`, `TIKTOK_REDIRECT_URI`
+6. ⚠️ TikTok n'autorise **pas** les posts texte seuls — il faut joindre une vidéo. Le pipeline d'upload média n'est pas encore implémenté (voir « Roadmap »).
+
+Après avoir mis à jour `.env` :
+```bash
+docker compose up -d --force-recreate api worker
+```
+
+---
+
+## Site vitrine & onboarding autonome
+
+### Vitrine (routes publiques)
+
+Les pages marketing vivent dans `apps/web/app/(marketing)/` (route group, transparent dans l'URL) :
+
+| URL              | Page                                |
+|------------------|-------------------------------------|
+| `/`              | Landing — hero, fonctionnalités, CTA |
+| `/features`      | Détail des fonctionnalités          |
+| `/pricing`       | Plans tarifaires (Free / Starter / Pro) |
+| `/legal/terms`   | CGU (gabarit à compléter)           |
+| `/legal/privacy` | Politique de confidentialité        |
+
+Toutes utilisent `MarketingHeader` + `MarketingFooter`. Le header détecte un JWT en localStorage pour afficher « Tableau de bord » à la place de « Connexion ».
+
+### Onboarding client autonome
+
+Après inscription, l'utilisateur est dirigé vers `/onboarding`, qui le route automatiquement vers la première étape non terminée. Le backend persiste l'état (`Tenant.onboardingStep`, `User.emailVerifiedAt`) — un client peut quitter et reprendre.
+
+Étapes :
+
+1. **Vérification email** (`/onboarding/verify`)
+   - Si SMTP configuré (`SMTP_HOST` non vide) → envoi d'un mail avec lien tokenisé.
+   - Si SMTP absent → l'email est auto-validé (mode dev/preview, log dans la console API).
+   - Le lien dans l'email pointe sur `/onboarding/verify?token=…` et fonctionne sans être connecté.
+2. **Connexion d'un premier réseau** (`/onboarding/connect`) — boutons OAuth pour LinkedIn, Facebook, Instagram, TikTok ; détecte les comptes déjà reliés.
+3. **Fin** (`/onboarding/done`) — propose « créer mon premier post » ou « aller au tableau de bord ».
+
+À chaque login, la page de connexion vérifie `/onboarding/status` et redirige vers `/onboarding` si l'utilisateur n'a pas terminé — pas de support à contacter, le client se débloque seul.
+
+### Configuration SMTP (optionnel mais recommandé en prod)
+
+Renseigne dans `.env` :
+
+```
+SMTP_HOST=smtp.example.com
+SMTP_PORT=587
+SMTP_USER=apikey
+SMTP_PASSWORD=your-key
+SMTP_FROM=Community <no-reply@tondomaine.com>
+```
+
+Sans SMTP, l'onboarding fonctionne en mode auto-vérification (utile pour tests locaux).
+
+---
+
+## Modèle multi-tenant
+
+- Chaque utilisateur peut appartenir à plusieurs **tenants** via la table `Membership`.
+- Toutes les données métier (comptes sociaux, posts, médias) portent un `tenantId` et sont filtrées dans chaque service par le tenant courant du JWT.
+- Le JWT contient `{ sub: userId, tenantId }`. Pour basculer entre tenants, il faut ré-émettre un token (à ajouter — endpoint `/auth/switch-tenant`).
+- Rôles disponibles : `OWNER`, `ADMIN`, `EDITOR`, `VIEWER` (les guards par rôle sont à compléter selon tes besoins).
+
+---
+
+## Sécurité
+
+- **Tokens OAuth** stockés chiffrés en base (AES-256-GCM, clé `TOKEN_ENCRYPTION_KEY`).
+- **Mots de passe** hashés avec bcrypt (cost 12).
+- **JWT** signés avec `JWT_SECRET` (durée par défaut : 7 jours).
+- Caddy gère le TLS automatiquement.
+- Le worker tourne sur la même image que l'API mais sans port exposé.
+
+---
+
+## Développement local
+
+```bash
+# Backend (hot reload)
+cd apps/api
+npm install
+cp ../../.env.example .env  # ou exporte les variables
+DATABASE_URL=postgresql://localhost:5432/community npm run prisma:migrate:dev
+npm run start:dev
+
+# Frontend
+cd apps/web
+npm install
+NEXT_PUBLIC_API_URL=http://localhost:3001/api npm run dev
+```
+
+---
+
+## Commandes utiles
+
+```bash
+docker compose ps                        # statut
+docker compose logs -f api worker        # logs backend
+docker compose exec api npx prisma studio  # explorateur DB (port à mapper)
+docker compose exec postgres psql -U community community
+docker compose down                      # arrêt
+docker compose down -v                   # arrêt + suppression des volumes (⚠️ détruit la DB)
+```
+
+---
+
+## Roadmap (à compléter)
+
+- [ ] Upload de médias (images / vidéos) — stockage local ou S3
+- [ ] Pipeline complet Instagram (container + publish)
+- [ ] Pipeline complet TikTok (PULL_FROM_URL ou upload chunked)
+- [ ] OAuth refresh tokens automatique côté worker
+- [ ] Endpoint `/auth/switch-tenant` + sélecteur dans la nav
+- [ ] Guards par rôle (`OWNER`/`ADMIN`/`EDITOR`/`VIEWER`)
+- [ ] Webhooks pour récupérer les statistiques de publication
+- [ ] Tests e2e (Playwright)
+- [ ] X / Twitter provider
+- [ ] Multi-image posts, threads, hashtags suggérés
+
+---
+
+## Licence
+
+À définir selon tes besoins (MIT, AGPL, propriétaire…).
