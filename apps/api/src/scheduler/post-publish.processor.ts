@@ -21,7 +21,7 @@ export class PostPublishProcessor extends WorkerHost {
 
     const post = await this.prisma.post.findUnique({
       where: { id: postId },
-      include: { targets: { include: { account: true } } },
+      include: { targets: { include: { account: true } }, media: true },
     });
     if (!post) {
       this.logger.warn(`Post ${postId} not found — skipping`);
@@ -41,7 +41,7 @@ export class PostPublishProcessor extends WorkerHost {
       try {
         const result = await this.social.publish(target.account, {
           content: post.content,
-          mediaIds: [],
+          mediaIds: post.media.map((m) => m.id),
         });
 
         await this.prisma.postTarget.update({

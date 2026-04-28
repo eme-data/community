@@ -92,6 +92,22 @@ model PasswordReset {
   @@index([userId])
 }
 
+model Invitation {
+  id              String    @id @default(cuid())
+  tenantId        String
+  email           String
+  role            Role      @default(EDITOR)
+  // Hashed sha256 of the raw token; raw token only travels in the email link
+  tokenHash       String    @unique
+  invitedByUserId String
+  expiresAt       DateTime
+  consumedAt      DateTime?
+  createdAt       DateTime  @default(now())
+
+  @@index([tenantId])
+  @@index([email])
+}
+
 model Membership {
   id        String   @id @default(cuid())
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)

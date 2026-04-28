@@ -30,3 +30,18 @@ export async function api<T = unknown>(
   if (res.status === 204) return undefined as T;
   return (await res.json()) as T;
 }
+
+/** Upload a single file as multipart/form-data. */
+export async function apiUpload<T = unknown>(path: string, file: File): Promise<T> {
+  const headers = new Headers();
+  const t = token();
+  if (t) headers.set('Authorization', `Bearer ${t}`);
+  const fd = new FormData();
+  fd.append('file', file);
+  const res = await fetch(`${BASE}${path}`, { method: 'POST', headers, body: fd });
+  if (!res.ok) {
+    const text = await res.text();
+    throw new Error(text || `Upload failed: ${res.status}`);
+  }
+  return (await res.json()) as T;
+}

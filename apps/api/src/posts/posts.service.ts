@@ -37,6 +37,16 @@ export class PostsService {
       throw new BadRequestException('One or more social accounts are invalid');
     }
 
+    const mediaIds = dto.mediaIds ?? [];
+    if (mediaIds.length > 0) {
+      const owned = await this.prisma.mediaAsset.count({
+        where: { id: { in: mediaIds }, tenantId },
+      });
+      if (owned !== mediaIds.length) {
+        throw new BadRequestException('One or more media assets are invalid');
+      }
+    }
+
     const scheduledAt = dto.scheduledAt ? new Date(dto.scheduledAt) : null;
     const status = scheduledAt ? 'SCHEDULED' : 'DRAFT';
 
@@ -53,8 +63,11 @@ export class PostsService {
             status: scheduledAt ? 'SCHEDULED' : 'DRAFT',
           })),
         },
+        media: mediaIds.length
+          ? { connect: mediaIds.map((id) => ({ id })) }
+          : undefined,
       },
-      include: { targets: true },
+      include: { targets: true, media: true },
     });
 
     if (scheduledAt) {

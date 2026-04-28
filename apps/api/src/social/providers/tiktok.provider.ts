@@ -3,6 +3,8 @@ import axios from 'axios';
 import { randomBytes } from 'crypto';
 import { SocialAccount } from '@prisma/client';
 import { decrypt } from '../crypto.util';
+import { MediaService } from '../../media/media.service';
+import { PrismaService } from '../../prisma/prisma.service';
 import {
   SocialProvider,
   OAuthAuthorizeUrl,
@@ -29,6 +31,11 @@ const USERINFO_URL = 'https://open.tiktokapis.com/v2/user/info/';
 export class TikTokProvider implements SocialProvider {
   readonly key = 'TIKTOK' as const;
   private readonly logger = new Logger(TikTokProvider.name);
+
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly media: MediaService,
+  ) {}
 
   buildAuthorizeUrl(input: { tenantId: string; userId: string }): OAuthAuthorizeUrl {
     const state = `${input.tenantId}:${input.userId}:${randomBytes(8).toString('hex')}`;
@@ -74,10 +81,36 @@ export class TikTokProvider implements SocialProvider {
     };
   }
 
-  async publish(_account: SocialAccount, _input: PublishInput): Promise<PublishResult> {
-    throw new Error(
-      'TikTok publishing is not implemented yet — TikTok requires a video upload via the Content Posting API.',
+  async publish(account: SocialAccount, input: PublishInput): Promise<PublishResult> {
+    if (!input.mediaIds || input.mediaIds.length === 0) {
+      throw new Error('TikTok requires a video');
+    }
+    const asset = await this.prisma.mediaAsset.findUnique({ where: { id: input.mediaIds[0] } });
+    if (!asset || !asset.mimeType.startsWith('video/')) {
+      throw new Error('TikTok requires a video media asset');
+    }
+    const token = decrypt(account.accessToken);
+    const videoUrl = this.media.publicUrl(asset.id);
+
+    // PULL_FROM_URL is the simplest path — TikTok fetches the file from us.
+    // The URL must be publicly reachable via HTTPS in production.
+    const initRes = await axios.post(
+      'https://open.tiktokapis.com/v2/post/publish/video/init/',
+      {
+        post_info: {
+          title: input.content.slice(0, 150),
+          privacy_level: 'PUBLIC_TO_EVERYONE',
+          disable_comment: false,
+          disable_duet: false,
+          disable_stitch: false,
+        },
+        source_info: { source: 'PULL_FROM_URL', video_url: videoUrl },
+      },
+      { headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' } },
     );
+    const publishId = initRes.data?.data?.publish_id as string;
+    if (!publishId) throw new Error('TikTok did not return a publish_id');
+    return { providerPostId: publishId };
   }
 
   async refreshTokens(account: SocialAccount): Promise<Partial<OAuthCallbackResult> | null> {

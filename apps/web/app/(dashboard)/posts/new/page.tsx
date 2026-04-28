@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { api } from '@/lib/api';
+import { api, apiUpload } from '@/lib/api';
 
 interface Account {
   id: string;
@@ -10,11 +10,20 @@ interface Account {
   displayName?: string;
 }
 
+interface Media {
+  id: string;
+  filename: string;
+  mimeType: string;
+  sizeBytes: number;
+}
+
 export default function NewPostPage() {
   const router = useRouter();
   const [accounts, setAccounts] = useState<Account[]>([]);
   const [content, setContent] = useState('');
   const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [media, setMedia] = useState<Media[]>([]);
+  const [uploading, setUploading] = useState(false);
   const [scheduledAt, setScheduledAt] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
@@ -31,6 +40,26 @@ export default function NewPostPage() {
     });
   }
 
+  async function onUpload(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setUploading(true);
+    setError(null);
+    try {
+      const m = await apiUpload<Media>('/media', file);
+      setMedia((prev) => [...prev, m]);
+    } catch (err: any) {
+      setError(err.message || 'Échec de l\'upload');
+    } finally {
+      setUploading(false);
+      e.target.value = ''; // allow re-selecting the same file
+    }
+  }
+
+  function removeMedia(id: string) {
+    setMedia((prev) => prev.filter((m) => m.id !== id));
+  }
+
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (selected.size === 0) {
@@ -45,6 +74,7 @@ export default function NewPostPage() {
         body: JSON.stringify({
           content,
           accountIds: [...selected],
+          mediaIds: media.map((m) => m.id),
           scheduledAt: scheduledAt ? new Date(scheduledAt).toISOString() : undefined,
         }),
       });
@@ -69,6 +99,45 @@ export default function NewPostPage() {
         onChange={(e) => setContent(e.target.value)}
         className="w-full px-3 py-2 rounded border border-slate-300 dark:border-slate-700 bg-transparent"
       />
+
+      <div className="space-y-2">
+        <label className="block text-sm font-medium">Médias (images / vidéos)</label>
+        <input
+          type="file"
+          accept="image/*,video/*"
+          onChange={onUpload}
+          disabled={uploading}
+          className="text-sm"
+        />
+        {uploading && <p className="text-xs text-slate-500">Upload en cours...</p>}
+        {media.length > 0 && (
+          <ul className="grid grid-cols-3 gap-2">
+            {media.map((m) => (
+              <li key={m.id} className="relative">
+                {m.mimeType.startsWith('image/') ? (
+                  <img
+                    src={`${process.env.NEXT_PUBLIC_API_URL || '/api'}/media/${m.id}/raw`}
+                    alt={m.filename}
+                    className="w-full h-24 object-cover rounded border border-slate-200 dark:border-slate-800"
+                  />
+                ) : (
+                  <div className="w-full h-24 rounded border border-slate-200 dark:border-slate-800 flex items-center justify-center text-xs text-slate-500">
+                    {m.filename}
+                  </div>
+                )}
+                <button
+                  type="button"
+                  onClick={() => removeMedia(m.id)}
+                  className="absolute top-1 right-1 bg-red-600 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center"
+                >
+                  ×
+                </button>
+              </li>
+            ))}
+          </ul>
+        )}
+        <p className="text-xs text-slate-500">Instagram requiert au moins une image/vidéo. TikTok exige une vidéo.</p>
+      </div>
 
       <fieldset className="space-y-2">
         <legend className="text-sm font-medium">Cibler les comptes</legend>

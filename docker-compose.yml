@@ -38,6 +38,9 @@ services:
     env_file: .env
     environment:
       ROLE: api
+      UPLOAD_DIR: /app/uploads
+    volumes:
+      - uploads-data:/app/uploads
     depends_on:
       postgres:
         condition: service_healthy
@@ -54,7 +57,10 @@ services:
     env_file: .env
     environment:
       ROLE: worker
+      UPLOAD_DIR: /app/uploads
     command: ["node", "dist/worker.js"]
+    volumes:
+      - uploads-data:/app/uploads
     depends_on:
       postgres:
         condition: service_healthy
@@ -104,3 +110,4 @@ volumes:
   redis-data:
   caddy-data:
   caddy-config:
+  uploads-data:

@@ -12,6 +12,8 @@ const links = [
   { href: '/posts/calendar', label: 'Calendrier' },
   { href: '/posts/new', label: 'Nouveau post' },
   { href: '/accounts', label: 'Comptes sociaux' },
+  { href: '/settings/team', label: 'Équipe' },
+  { href: '/settings/billing', label: 'Facturation' },
 ];
 
 export function Nav() {

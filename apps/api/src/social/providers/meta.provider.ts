@@ -3,6 +3,8 @@ import axios from 'axios';
 import { randomBytes } from 'crypto';
 import { SocialAccount } from '@prisma/client';
 import { decrypt } from '../crypto.util';
+import { MediaService } from '../../media/media.service';
+import { PrismaService } from '../../prisma/prisma.service';
 import {
   SocialProvider,
   OAuthAuthorizeUrl,
@@ -31,7 +33,11 @@ export class MetaProvider implements SocialProvider {
   readonly key: 'FACEBOOK' | 'INSTAGRAM';
   private readonly logger = new Logger(MetaProvider.name);
 
-  constructor(key: 'FACEBOOK' | 'INSTAGRAM' = 'FACEBOOK') {
+  constructor(
+    protected readonly prisma: PrismaService,
+    protected readonly media: MediaService,
+    key: 'FACEBOOK' | 'INSTAGRAM' = 'FACEBOOK',
+  ) {
     this.key = key;
   }
 
@@ -110,12 +116,85 @@ export class MetaProvider implements SocialProvider {
   }
 
   private async publishInstagram(account: SocialAccount, input: PublishInput): Promise<PublishResult> {
-    // IG publishing requires media. Without media we fall back to a placeholder error.
-    // TODO: when MediaAsset upload is wired, push image_url/video_url here.
     if (!input.mediaIds || input.mediaIds.length === 0) {
       throw new Error('Instagram requires at least one media (image/video)');
     }
-    throw new Error('Instagram publishing not yet implemented — see MetaProvider.publishInstagram');
+    const token = decrypt(account.accessToken);
+    const igUserId = account.providerUserId;
+
+    const assets = await this.prisma.mediaAsset.findMany({
+      where: { id: { in: input.mediaIds } },
+    });
+    if (assets.length === 0) throw new Error('No accessible media');
+
+    // Single-media post
+    if (assets.length === 1) {
+      const a = assets[0];
+      const isVideo = a.mimeType.startsWith('video/');
+      const containerRes = await axios.post(`${GRAPH_URL}/${igUserId}/media`, null, {
+        params: {
+          [isVideo ? 'video_url' : 'image_url']: this.media.publicUrl(a.id),
+          media_type: isVideo ? 'REELS' : undefined,
+          caption: input.content,
+          access_token: token,
+        },
+      });
+      const containerId = containerRes.data.id as string;
+
+      // For videos IG needs a poll on container status, but for images publish is immediate.
+      if (isVideo) {
+        await this.waitForContainerReady(containerId, token);
+      }
+
+      const publishRes = await axios.post(`${GRAPH_URL}/${igUserId}/media_publish`, null, {
+        params: { creation_id: containerId, access_token: token },
+      });
+      const id = publishRes.data.id as string;
+      return { providerPostId: id, providerUrl: `https://www.instagram.com/p/${id}` };
+    }
+
+    // Carousel (2-10 media)
+    const childIds: string[] = [];
+    for (const a of assets.slice(0, 10)) {
+      const isVideo = a.mimeType.startsWith('video/');
+      const c = await axios.post(`${GRAPH_URL}/${igUserId}/media`, null, {
+        params: {
+          [isVideo ? 'video_url' : 'image_url']: this.media.publicUrl(a.id),
+          is_carousel_item: true,
+          access_token: token,
+        },
+      });
+      childIds.push(c.data.id);
+    }
+    const carousel = await axios.post(`${GRAPH_URL}/${igUserId}/media`, null, {
+      params: {
+        media_type: 'CAROUSEL',
+        children: childIds.join(','),
+        caption: input.content,
+        access_token: token,
+      },
+    });
+    const publishRes = await axios.post(`${GRAPH_URL}/${igUserId}/media_publish`, null, {
+      params: { creation_id: carousel.data.id, access_token: token },
+    });
+    return { providerPostId: publishRes.data.id };
+  }
+
+  /** Poll a video container until IG reports it's ready (or fail after a timeout). */
+  private async waitForContainerReady(containerId: string, token: string): Promise<void> {
+    const maxAttempts = 30; // ~2.5 min at 5s
+    for (let i = 0; i < maxAttempts; i++) {
+      const res = await axios.get(`${GRAPH_URL}/${containerId}`, {
+        params: { fields: 'status_code', access_token: token },
+      });
+      const status = res.data.status_code;
+      if (status === 'FINISHED') return;
+      if (status === 'ERROR' || status === 'EXPIRED') {
+        throw new Error(`IG container failed: ${status}`);
+      }
+      await new Promise((r) => setTimeout(r, 5000));
+    }
+    throw new Error('IG container did not become ready in time');
   }
 
   private requireEnv(name: string): string {
@@ -127,14 +206,14 @@ export class MetaProvider implements SocialProvider {
 
 @Injectable()
 export class FacebookProvider extends MetaProvider {
-  constructor() {
-    super('FACEBOOK');
+  constructor(prisma: PrismaService, media: MediaService) {
+    super(prisma, media, 'FACEBOOK');
   }
 }
 
 @Injectable()
 export class InstagramProvider extends MetaProvider {
-  constructor() {
-    super('INSTAGRAM');
+  constructor(prisma: PrismaService, media: MediaService) {
+    super(prisma, media, 'INSTAGRAM');
   }
 }

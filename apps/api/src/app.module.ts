@@ -14,6 +14,8 @@ import { PostsModule } from './posts/posts.module';
 import { SocialModule } from './social/social.module';
 import { SchedulerModule } from './scheduler/scheduler.module';
 import { OnboardingModule } from './onboarding/onboarding.module';
+import { MediaModule } from './media/media.module';
+import { InvitationsModule } from './invitations/invitations.module';
 import { HealthController } from './health.controller';
 
 @Module({
@@ -40,6 +42,8 @@ import { HealthController } from './health.controller';
     SocialModule,
     SchedulerModule,
     OnboardingModule,
+    MediaModule,
+    InvitationsModule,
   ],
   controllers: [HealthController],
   providers: [{ provide: APP_GUARD, useClass: ThrottlerGuard }],
