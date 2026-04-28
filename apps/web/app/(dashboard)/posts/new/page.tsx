@@ -17,15 +17,25 @@ interface Media {
   sizeBytes: number;
 }
 
+interface Template {
+  id: string;
+  name: string;
+  content: string;
+  thread: string[];
+}
+
 export default function NewPostPage() {
   const router = useRouter();
   const [accounts, setAccounts] = useState<Account[]>([]);
+  const [templates, setTemplates] = useState<Template[]>([]);
+  const [aiEnabled, setAiEnabled] = useState(false);
   const [content, setContent] = useState('');
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [media, setMedia] = useState<Media[]>([]);
   const [uploading, setUploading] = useState(false);
   const [scheduledAt, setScheduledAt] = useState('');
   const [thread, setThread] = useState<string[]>([]);
+  const [aiBusy, setAiBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
@@ -36,7 +46,54 @@ export default function NewPostPage() {
 
   useEffect(() => {
     api<Account[]>('/social/accounts').then(setAccounts);
+    api<Template[]>('/templates').then(setTemplates).catch(() => setTemplates([]));
+    api<{ enabled: boolean }>('/ai/status').then((s) => setAiEnabled(s.enabled)).catch(() => {});
   }, []);
+
+  function applyTemplate(id: string) {
+    const t = templates.find((tmpl) => tmpl.id === id);
+    if (!t) return;
+    setContent(t.content);
+    setThread(t.thread ?? []);
+  }
+
+  async function suggestHashtags() {
+    if (!content.trim()) return;
+    setAiBusy(true);
+    try {
+      const networks = [...selected]
+        .map((id) => accounts.find((a) => a.id === id)?.provider)
+        .filter((p): p is string => !!p);
+      const res = await api<{ hashtags: string[] }>('/ai/hashtags', {
+        method: 'POST',
+        body: JSON.stringify({ content, networks }),
+      });
+      setContent((c) => `${c}\n\n${res.hashtags.join(' ')}`.trim());
+    } catch (err: any) {
+      alert(err.message || 'Erreur IA');
+    } finally {
+      setAiBusy(false);
+    }
+  }
+
+  async function rewriteFor(network: string) {
+    if (!content.trim()) return;
+    const tone = prompt('Ton (professional, casual, enthusiastic, informative, witty) :', 'professional');
+    if (!tone) return;
+    setAiBusy(true);
+    try {
+      const res = await api<{ rewritten: string; thread?: string[] }>('/ai/rewrite', {
+        method: 'POST',
+        body: JSON.stringify({ content, network, tone }),
+      });
+      setContent(res.rewritten);
+      if (res.thread) setThread(res.thread);
+    } catch (err: any) {
+      alert(err.message || 'Erreur IA');
+    } finally {
+      setAiBusy(false);
+    }
+  }
 
   function toggle(id: string) {
     setSelected((s) => {
@@ -98,6 +155,20 @@ export default function NewPostPage() {
       <h1 className="text-2xl font-bold">Nouveau post</h1>
       {error && <p className="text-red-600 text-sm">{error}</p>}
 
+      {templates.length > 0 && (
+        <div>
+          <label className="block text-sm font-medium mb-1">Charger un template</label>
+          <select
+            onChange={(e) => { if (e.target.value) applyTemplate(e.target.value); }}
+            defaultValue=""
+            className="px-3 py-2 rounded border border-slate-300 dark:border-slate-700 bg-transparent text-sm"
+          >
+            <option value="">— sélectionner —</option>
+            {templates.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
+          </select>
+        </div>
+      )}
+
       <textarea
         required
         rows={6}
@@ -106,6 +177,52 @@ export default function NewPostPage() {
         onChange={(e) => setContent(e.target.value)}
         className="w-full px-3 py-2 rounded border border-slate-300 dark:border-slate-700 bg-transparent"
       />
+
+      {aiEnabled && content.length > 5 && (
+        <div className="flex flex-wrap gap-2 -mt-2">
+          <button
+            type="button"
+            onClick={suggestHashtags}
+            disabled={aiBusy}
+            className="text-xs px-2 py-1 rounded border border-slate-300 dark:border-slate-700 hover:border-brand disabled:opacity-50"
+          >
+            ✨ Suggérer des hashtags
+          </button>
+          <button
+            type="button"
+            onClick={() => rewriteFor('LINKEDIN')}
+            disabled={aiBusy}
+            className="text-xs px-2 py-1 rounded border border-slate-300 dark:border-slate-700 hover:border-brand disabled:opacity-50"
+          >
+            ✨ Reformuler pour LinkedIn
+          </button>
+          <button
+            type="button"
+            onClick={() => rewriteFor('INSTAGRAM')}
+            disabled={aiBusy}
+            className="text-xs px-2 py-1 rounded border border-slate-300 dark:border-slate-700 hover:border-brand disabled:opacity-50"
+          >
+            ✨ Reformuler pour Instagram
+          </button>
+          <button
+            type="button"
+            onClick={() => rewriteFor('TWITTER')}
+            disabled={aiBusy}
+            className="text-xs px-2 py-1 rounded border border-slate-300 dark:border-slate-700 hover:border-brand disabled:opacity-50"
+          >
+            ✨ Reformuler pour X
+          </button>
+          <button
+            type="button"
+            onClick={() => rewriteFor('THREAD')}
+            disabled={aiBusy}
+            className="text-xs px-2 py-1 rounded border border-slate-300 dark:border-slate-700 hover:border-brand disabled:opacity-50"
+          >
+            ✨ Convertir en thread X
+          </button>
+          {aiBusy && <span className="text-xs text-slate-500 self-center">IA en cours...</span>}
+        </div>
+      )}
 
       <div className="space-y-2">
         <label className="block text-sm font-medium">Médias (images / vidéos)</label>

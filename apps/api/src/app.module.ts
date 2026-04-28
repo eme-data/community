@@ -19,6 +19,8 @@ import { MediaModule } from './media/media.module';
 import { InvitationsModule } from './invitations/invitations.module';
 import { BillingModule } from './billing/billing.module';
 import { AuditModule } from './audit/audit.module';
+import { TemplatesModule } from './templates/templates.module';
+import { AIModule } from './ai/ai.module';
 import { HealthController } from './health.controller';
 
 @Module({
@@ -60,6 +62,8 @@ import { HealthController } from './health.controller';
     InvitationsModule,
     BillingModule,
     AuditModule,
+    TemplatesModule,
+    AIModule,
   ],
   controllers: [HealthController],
   providers: [{ provide: APP_GUARD, useClass: ThrottlerGuard }],

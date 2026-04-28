@@ -240,15 +240,47 @@ La pré-validation est **désactivée par défaut** — un OWNER peut l'activer 
 
 Chaque échec d'une cible est isolé : si LinkedIn passe mais Instagram échoue, le post est marqué `FAILED` au global mais avec le détail par target ; le retry exponentiel (5 tentatives, base 60s) est appliqué.
 
+## Assistant IA (Claude)
+
+Si `ANTHROPIC_API_KEY` est défini, le composer expose deux fonctions :
+
+- **Suggérer des hashtags** — Claude Opus 4.7 propose 5-8 hashtags adaptés au contenu et aux réseaux ciblés (LinkedIn → professionnel, Instagram → discovery, etc.).
+- **Reformuler** — adapte le post au format/ton d'un réseau précis (LinkedIn, Instagram, X, Thread X), avec choix du ton (professional, casual, enthusiastic, informative, witty).
+
+Le system prompt est mis en cache (`cache_control: ephemeral`) → la 2ème requête et les suivantes utilisent la version cachée (~10× moins cher en input tokens). Récupère ta clé sur https://console.anthropic.com/.
+
+Sans clé, les boutons IA ne s'affichent pas.
+
+## Templates
+
+Bibliothèque réutilisable de trames de posts. Page `/templates` (création / suppression). Le composer affiche un sélecteur "Charger un template" qui pré-remplit le contenu et le thread. Tu peux utiliser des placeholders comme `{{brand}}` ou `{{date}}` à éditer après chargement.
+
+## Import CSV bulk
+
+Page `/posts/import`. Format attendu :
+
+```csv
+content,scheduled_at,account_ids,thread
+"Hello world",,acc_id_1;acc_id_2,
+"Big launch",2026-05-01T09:00:00Z,acc_id_1,
+"X thread",,acc_twitter_id,"Tweet 2|Tweet 3"
+```
+
+- `content` et `account_ids` obligatoires
+- `account_ids` séparés par `;`
+- `thread` séparé par `|` (X uniquement)
+- `scheduled_at` vide → DRAFT, sinon ISO 8601 → SCHEDULED
+- Le rapport renvoie le nombre de succès et la liste des lignes en échec avec leur erreur
+
 ## Roadmap restante
 
 - [ ] Webhooks pour récupérer les statistiques de publication
-- [ ] Hashtags suggérés / IA de reformulation
-- [ ] Dashboard d'observabilité (Grafana/Loki)
+- [ ] Best-time-to-post analytics
 - [ ] White-label (couleurs/logo par tenant)
 - [ ] API publique versionnée + clés API par tenant
-- [ ] Bulk import CSV de posts
 - [ ] A/B testing de variantes
+- [ ] Dashboard d'observabilité (Grafana/Loki)
+- [ ] i18n (fr/en)
 
 ---
 

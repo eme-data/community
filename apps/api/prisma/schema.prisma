@@ -75,6 +75,7 @@ model Tenant {
   accounts              SocialAccount[]
   posts                 Post[]
   mediaAssets           MediaAsset[]
+  templates             PostTemplate[]
 }
 
 model User {
@@ -132,6 +133,20 @@ model PasswordReset {
   createdAt  DateTime  @default(now())
 
   @@index([userId])
+}
+
+model PostTemplate {
+  id              String   @id @default(cuid())
+  tenant          Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  tenantId        String
+  name            String
+  content         String   @db.Text
+  thread          String[] @default([])
+  createdByUserId String
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@index([tenantId])
 }
 
 model AuditLog {

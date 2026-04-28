@@ -12,6 +12,8 @@ const links = [
   { href: '/posts/pending', label: 'À approuver' },
   { href: '/posts/calendar', label: 'Calendrier' },
   { href: '/posts/new', label: 'Nouveau post' },
+  { href: '/posts/import', label: 'Import CSV' },
+  { href: '/templates', label: 'Templates' },
   { href: '/accounts', label: 'Comptes sociaux' },
   { href: '/settings/team', label: 'Équipe' },
   { href: '/settings/general', label: 'Général' },
