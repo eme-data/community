@@ -4,6 +4,8 @@ import { Queue } from 'bullmq';
 import { Role } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { AuditService } from '../audit/audit.service';
+import { WebhooksService } from '../webhooks/webhooks.service';
+import { NotificationsService } from '../notifications/notifications.service';
 import { CreatePostDto } from './dto/create-post.dto';
 
 @Injectable()
@@ -11,6 +13,8 @@ export class PostsService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly audit: AuditService,
+    private readonly webhooks: WebhooksService,
+    private readonly notifications: NotificationsService,
     @InjectQueue('post-publish') private readonly queue: Queue,
   ) {}
 
@@ -115,6 +119,26 @@ export class PostsService {
       payload: { accountIds: dto.accountIds, scheduledAt: scheduledAt?.toISOString() },
     });
 
+    if (status === 'SCHEDULED') {
+      await this.webhooks.dispatch(tenantId, 'post.scheduled', {
+        postId: post.id,
+        scheduledAt: scheduledAt?.toISOString(),
+        accountIds: dto.accountIds,
+      });
+    }
+    if (status === 'PENDING_APPROVAL') {
+      await this.webhooks.dispatch(tenantId, 'approval.requested', {
+        postId: post.id,
+        authorUserId: userId,
+      });
+      await this.notifications.notifyAdmins(tenantId, {
+        type: 'approval.requested',
+        title: 'Post en attente d\'approbation',
+        body: dto.content.slice(0, 140),
+        link: `/posts/pending`,
+      });
+    }
+
     return post;
   }
 
@@ -148,6 +172,19 @@ export class PostsService {
       target: postId,
       payload: { authorUserId: post.authorUserId, scheduledAt: post.scheduledAt?.toISOString() },
     });
+    await this.webhooks.dispatch(tenantId, 'post.approved', {
+      postId,
+      reviewerUserId,
+      scheduledAt: post.scheduledAt?.toISOString(),
+    });
+    await this.notifications.create({
+      tenantId,
+      userId: post.authorUserId,
+      type: 'post.approved',
+      title: 'Post approuvé',
+      body: post.content.slice(0, 140),
+      link: `/posts/${postId}`,
+    });
     return { ok: true };
   }
 
@@ -175,6 +212,19 @@ export class PostsService {
       action: 'post.rejected',
       target: postId,
       payload: { authorUserId: post.authorUserId, reason },
+    });
+    await this.webhooks.dispatch(tenantId, 'post.rejected', {
+      postId,
+      reviewerUserId,
+      reason: reason ?? null,
+    });
+    await this.notifications.create({
+      tenantId,
+      userId: post.authorUserId,
+      type: 'post.rejected',
+      title: 'Post refusé',
+      body: reason || post.content.slice(0, 140),
+      link: `/posts/${postId}`,
     });
     return { ok: true };
   }

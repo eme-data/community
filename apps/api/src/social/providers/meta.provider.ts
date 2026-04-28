@@ -9,6 +9,7 @@ import {
   SocialProvider,
   OAuthAuthorizeUrl,
   OAuthCallbackResult,
+  PostMetricsSnapshot,
   PublishInput,
   PublishResult,
 } from './social-provider.interface';
@@ -178,6 +179,52 @@ export class MetaProvider implements SocialProvider {
       params: { creation_id: carousel.data.id, access_token: token },
     });
     return { providerPostId: publishRes.data.id };
+  }
+
+  async fetchMetrics(
+    account: SocialAccount,
+    providerPostId: string,
+  ): Promise<PostMetricsSnapshot | null> {
+    const token = decrypt(account.accessToken);
+    try {
+      if (account.provider === 'INSTAGRAM') {
+        // IG insights: impressions, reach, likes, comments — Reels also expose plays.
+        const metricList = 'impressions,reach,likes,comments,saved,shares';
+        const res = await axios.get(`${GRAPH_URL}/${providerPostId}/insights`, {
+          params: { metric: metricList, access_token: token },
+        });
+        const data: Record<string, number> = {};
+        for (const m of res.data?.data ?? []) {
+          data[m.name] = m.values?.[0]?.value ?? 0;
+        }
+        return {
+          impressions: data.impressions,
+          reach: data.reach,
+          likes: data.likes,
+          comments: data.comments,
+          shares: data.shares,
+          raw: data,
+        };
+      }
+      // Facebook page post insights — these names are stable for page posts.
+      const metricList = 'post_impressions,post_impressions_unique,post_clicks,post_engaged_users';
+      const res = await axios.get(`${GRAPH_URL}/${providerPostId}/insights`, {
+        params: { metric: metricList, access_token: token },
+      });
+      const data: Record<string, number> = {};
+      for (const m of res.data?.data ?? []) {
+        data[m.name] = m.values?.[0]?.value ?? 0;
+      }
+      return {
+        impressions: data.post_impressions,
+        reach: data.post_impressions_unique,
+        clicks: data.post_clicks,
+        raw: data,
+      };
+    } catch (err: any) {
+      this.logger.debug?.(`Meta metrics unavailable for ${providerPostId}: ${err?.message ?? err}`);
+      return null;
+    }
   }
 
   /** Poll a video container until IG reports it's ready (or fail after a timeout). */

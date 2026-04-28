@@ -35,6 +35,7 @@ enum SocialProvider {
   INSTAGRAM
   TIKTOK
   TWITTER
+  BLUESKY
 }
 
 enum PostStatus {
@@ -87,6 +88,8 @@ model Tenant {
   posts                 Post[]
   mediaAssets           MediaAsset[]
   templates             PostTemplate[]
+  webhooks              Webhook[]
+  notifications         Notification[]
 }
 
 model User {
@@ -293,8 +296,29 @@ model PostTarget {
   attempts        Int            @default(0)
   publishedAt     DateTime?
 
+  metrics         PostMetric[]
+
   @@unique([postId, accountId])
   @@index([status])
+}
+
+// Per-target engagement snapshot. The metrics worker re-fetches at H+1, J+1
+// and J+7 after publication, so each row is a point-in-time measurement.
+model PostMetric {
+  id           String     @id @default(cuid())
+  target       PostTarget @relation(fields: [targetId], references: [id], onDelete: Cascade)
+  targetId     String
+  fetchedAt    DateTime   @default(now())
+  impressions  Int?
+  reach        Int?
+  likes        Int?
+  comments     Int?
+  shares       Int?
+  clicks       Int?
+  // Provider-specific raw numbers we don't model individually.
+  raw          Json?
+
+  @@index([targetId, fetchedAt])
 }
 
 model MediaAsset {
@@ -315,4 +339,65 @@ model MediaAsset {
 
   @@index([tenantId])
   @@index([postId])
+}
+
+// Outbound webhook subscription. Tenants register a URL + the events they
+// care about; the webhook delivery worker POSTs the JSON payload there with
+// an HMAC-SHA256 signature in the X-Community-Signature header.
+model Webhook {
+  id              String             @id @default(cuid())
+  tenant          Tenant             @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  tenantId        String
+  url             String
+  // Used to sign the request body. Shown to the user only once at creation.
+  secret          String
+  // Subset of: post.published, post.failed, post.scheduled, post.approved,
+  // post.rejected, approval.requested. Empty array = no events (effectively disabled).
+  events          String[]           @default([])
+  active          Boolean            @default(true)
+  createdByUserId String
+  lastDeliveryAt  DateTime?
+  lastFailureAt   DateTime?
+  createdAt       DateTime           @default(now())
+  updatedAt       DateTime           @updatedAt
+
+  deliveries      WebhookDelivery[]
+
+  @@index([tenantId])
+}
+
+model WebhookDelivery {
+  id           String   @id @default(cuid())
+  webhook      Webhook  @relation(fields: [webhookId], references: [id], onDelete: Cascade)
+  webhookId    String
+  event        String
+  payload      Json
+  // null until delivery is attempted; populated with HTTP code thereafter.
+  statusCode   Int?
+  responseBody String?
+  attempts     Int      @default(0)
+  deliveredAt  DateTime?
+  errorMessage String?
+  createdAt    DateTime @default(now())
+
+  @@index([webhookId, createdAt])
+}
+
+// In-app notification displayed in the bell dropdown. userId may be null for
+// tenant-wide notifications (everyone in the tenant sees it).
+model Notification {
+  id        String    @id @default(cuid())
+  tenant    Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  tenantId  String
+  userId    String?
+  // e.g. 'post.published', 'post.failed', 'approval.requested'
+  type      String
+  title     String
+  body      String?
+  link      String?
+  readAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  @@index([tenantId, userId, readAt])
+  @@index([tenantId, createdAt])
 }

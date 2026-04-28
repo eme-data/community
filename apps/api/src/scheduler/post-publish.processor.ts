@@ -4,6 +4,9 @@ import { Job } from 'bullmq';
 import { PrismaService } from '../prisma/prisma.service';
 import { SocialService } from '../social/social.service';
 import { AuditService } from '../audit/audit.service';
+import { WebhooksService } from '../webhooks/webhooks.service';
+import { NotificationsService } from '../notifications/notifications.service';
+import { MetricsService } from '../metrics/metrics.service';
 
 @Processor('post-publish')
 export class PostPublishProcessor extends WorkerHost {
@@ -13,6 +16,9 @@ export class PostPublishProcessor extends WorkerHost {
     private readonly prisma: PrismaService,
     private readonly social: SocialService,
     private readonly audit: AuditService,
+    private readonly webhooks: WebhooksService,
+    private readonly notifications: NotificationsService,
+    private readonly metrics: MetricsService,
   ) {
     super();
   }
@@ -80,15 +86,51 @@ export class PostPublishProcessor extends WorkerHost {
       },
     });
 
+    const targetSummary = post.targets.map((t) => ({
+      provider: t.account.provider,
+      status: t.status,
+      providerUrl: t.providerUrl,
+      providerPostId: t.providerPostId,
+      errorMessage: t.errorMessage,
+    }));
+
     await this.audit.log({
       tenantId: post.tenantId,
       userId: post.authorUserId,
       action: allOk ? 'post.published' : 'post.failed',
       target: postId,
-      payload: {
-        targets: post.targets.map((t) => ({ provider: t.account.provider, status: t.status })),
-      },
+      payload: { targets: targetSummary },
     });
+
+    // Webhook fan-out + in-app notification — both fire-and-forget.
+    await this.webhooks.dispatch(post.tenantId, allOk ? 'post.published' : 'post.failed', {
+      postId,
+      content: post.content.slice(0, 280),
+      targets: targetSummary,
+    });
+
+    await this.notifications.create({
+      tenantId: post.tenantId,
+      userId: post.authorUserId,
+      type: allOk ? 'post.published' : 'post.failed',
+      title: allOk ? 'Publication réussie' : 'Échec de publication',
+      body: allOk
+        ? `Publié sur ${targetSummary.map((t) => t.provider).join(', ')}.`
+        : `Une ou plusieurs cibles ont échoué : ${targetSummary
+            .filter((t) => t.status === 'FAILED')
+            .map((t) => `${t.provider} (${t.errorMessage ?? 'erreur'})`)
+            .join('; ')}`,
+      link: `/posts/${postId}`,
+    });
+
+    // Schedule the H+1 / J+1 / J+7 metric refetches for any published target.
+    if (allOk) {
+      try {
+        await this.metrics.scheduleForPost(postId);
+      } catch (err: any) {
+        this.logger.warn(`Could not schedule metrics for ${postId}: ${err?.message ?? err}`);
+      }
+    }
 
     if (!allOk) throw new Error(`One or more targets failed for post ${postId}`);
   }

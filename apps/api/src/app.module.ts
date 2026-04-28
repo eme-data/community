@@ -22,6 +22,9 @@ import { AuditModule } from './audit/audit.module';
 import { TemplatesModule } from './templates/templates.module';
 import { AIModule } from './ai/ai.module';
 import { ApiKeysModule } from './api-keys/api-keys.module';
+import { MetricsModule } from './metrics/metrics.module';
+import { WebhooksModule } from './webhooks/webhooks.module';
+import { NotificationsModule } from './notifications/notifications.module';
 import { HealthController } from './health.controller';
 
 @Module({
@@ -66,6 +69,9 @@ import { HealthController } from './health.controller';
     TemplatesModule,
     AIModule,
     ApiKeysModule,
+    MetricsModule,
+    WebhooksModule,
+    NotificationsModule,
   ],
   controllers: [HealthController],
   providers: [{ provide: APP_GUARD, useClass: ThrottlerGuard }],

@@ -6,7 +6,13 @@ import { LinkedInProvider } from './providers/linkedin.provider';
 import { FacebookProvider, InstagramProvider } from './providers/meta.provider';
 import { TikTokProvider } from './providers/tiktok.provider';
 import { TwitterProvider } from './providers/twitter.provider';
-import { SocialProvider, PublishInput, PublishResult } from './providers/social-provider.interface';
+import { BlueskyProvider } from './providers/bluesky.provider';
+import {
+  SocialProvider,
+  PublishInput,
+  PublishResult,
+  PostMetricsSnapshot,
+} from './providers/social-provider.interface';
 import { encrypt } from './crypto.util';
 
 @Injectable()
@@ -22,6 +28,7 @@ export class SocialService {
     instagram: InstagramProvider,
     tiktok: TikTokProvider,
     twitter: TwitterProvider,
+    private readonly bluesky: BlueskyProvider,
   ) {
     this.providers = {
       LINKEDIN: linkedin,
@@ -29,6 +36,7 @@ export class SocialService {
       INSTAGRAM: instagram,
       TIKTOK: tiktok,
       TWITTER: twitter,
+      BLUESKY: bluesky,
     };
   }
 
@@ -130,6 +138,63 @@ export class SocialService {
 
   publish(account: SocialAccount, input: PublishInput): Promise<PublishResult> {
     return this.getProvider(account.provider).publish(account, input);
+  }
+
+  fetchMetrics(
+    account: SocialAccount,
+    providerPostId: string,
+  ): Promise<PostMetricsSnapshot | null> {
+    const p = this.getProvider(account.provider);
+    if (!p.fetchMetrics) return Promise.resolve(null);
+    return p.fetchMetrics(account, providerPostId);
+  }
+
+  /** Manual Bluesky connection — exchanges handle + app-password for tokens. */
+  async connectBluesky(
+    tenantId: string,
+    userId: string,
+    identifier: string,
+    appPassword: string,
+  ) {
+    const result = await this.bluesky.createSession(identifier, appPassword);
+    const account = await this.prisma.socialAccount.upsert({
+      where: {
+        tenantId_provider_providerUserId: {
+          tenantId,
+          provider: 'BLUESKY',
+          providerUserId: result.providerUserId,
+        },
+      },
+      update: {
+        accessToken: encrypt(result.accessToken),
+        refreshToken: result.refreshToken ? encrypt(result.refreshToken) : null,
+        expiresAt: result.expiresAt,
+        scopes: result.scopes,
+        displayName: result.displayName,
+        avatarUrl: result.avatarUrl,
+        metadata: result.metadata as any,
+      },
+      create: {
+        tenantId,
+        provider: 'BLUESKY',
+        providerUserId: result.providerUserId,
+        accessToken: encrypt(result.accessToken),
+        refreshToken: result.refreshToken ? encrypt(result.refreshToken) : null,
+        expiresAt: result.expiresAt,
+        scopes: result.scopes,
+        displayName: result.displayName,
+        avatarUrl: result.avatarUrl,
+        metadata: result.metadata as any,
+      },
+    });
+    await this.audit.log({
+      tenantId,
+      userId,
+      action: 'social.account.connected',
+      target: account.id,
+      payload: { provider: 'BLUESKY', displayName: account.displayName },
+    });
+    return account;
   }
 
   /**

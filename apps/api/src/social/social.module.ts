@@ -7,6 +7,7 @@ import { LinkedInProvider } from './providers/linkedin.provider';
 import { FacebookProvider, InstagramProvider } from './providers/meta.provider';
 import { TikTokProvider } from './providers/tiktok.provider';
 import { TwitterProvider } from './providers/twitter.provider';
+import { BlueskyProvider } from './providers/bluesky.provider';
 
 @Module({
   imports: [MediaModule, AuditModule],
@@ -18,6 +19,7 @@ import { TwitterProvider } from './providers/twitter.provider';
     InstagramProvider,
     TikTokProvider,
     TwitterProvider,
+    BlueskyProvider,
   ],
   exports: [SocialService],
 })

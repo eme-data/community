@@ -1,4 +1,4 @@
-import { Controller, Delete, Get, Param, Query, Res, UseGuards } from '@nestjs/common';
+import { BadRequestException, Body, Controller, Delete, Get, Param, Post, Query, Res, UseGuards } from '@nestjs/common';
 import { Response } from 'express';
 import { SocialProvider } from '@prisma/client';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
@@ -13,6 +13,7 @@ const PROVIDER_PATH: Record<string, SocialProvider> = {
   instagram: 'INSTAGRAM',
   tiktok: 'TIKTOK',
   twitter: 'TWITTER',
+  bluesky: 'BLUESKY',
 };
 
 @Controller('social')
@@ -30,6 +31,28 @@ export class SocialController {
   @Roles('OWNER', 'ADMIN')
   remove(@CurrentUser() user: AuthUser, @Param('id') id: string) {
     return this.social.remove(user.tenantId, id, user.userId);
+  }
+
+  /**
+   * Manual Bluesky connection — no OAuth round-trip; the user enters their
+   * handle and an app password (created at https://bsky.app/settings/app-passwords)
+   * which we exchange against the PDS for an access JWT.
+   */
+  @Post('bluesky/connect')
+  @UseGuards(JwtAuthGuard)
+  async connectBluesky(
+    @CurrentUser() user: AuthUser,
+    @Body() body: { identifier?: string; appPassword?: string },
+  ) {
+    if (!body.identifier || !body.appPassword) {
+      throw new BadRequestException('identifier and appPassword are required');
+    }
+    return this.social.connectBluesky(
+      user.tenantId,
+      user.userId,
+      body.identifier.trim(),
+      body.appPassword,
+    );
   }
 
   /** Build OAuth URL — frontend redirects the browser there */

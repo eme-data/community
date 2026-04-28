@@ -1,7 +1,8 @@
 'use client';
 
+import Link from 'next/link';
 import { Suspense, useEffect, useState } from 'react';
-import { useSearchParams } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { api } from '@/lib/api';
 
 interface Account {
@@ -19,10 +20,12 @@ const PROVIDERS = [
   { key: 'instagram', label: 'Instagram' },
   { key: 'tiktok', label: 'TikTok' },
   { key: 'twitter', label: 'X (Twitter)' },
+  { key: 'bluesky', label: 'Bluesky', manual: true },
 ];
 
 function AccountsInner() {
   const params = useSearchParams();
+  const router = useRouter();
   const [accounts, setAccounts] = useState<Account[]>([]);
   const [loading, setLoading] = useState(true);
   const error = params.get('error');
@@ -35,7 +38,11 @@ function AccountsInner() {
 
   useEffect(() => { refresh(); }, []);
 
-  async function connect(provider: string) {
+  async function connect(provider: string, manual?: boolean) {
+    if (manual) {
+      router.push(`/accounts/${provider}/connect`);
+      return;
+    }
     const res = await api<{ url: string }>(`/social/${provider}/authorize`);
     window.location.href = res.url;
   }
@@ -57,11 +64,11 @@ function AccountsInner() {
         {PROVIDERS.map(p => (
           <button
             key={p.key}
-            onClick={() => connect(p.key)}
+            onClick={() => connect(p.key, (p as any).manual)}
             className="p-4 rounded-lg border border-slate-300 dark:border-slate-700 hover:border-brand hover:text-brand transition text-left"
           >
             <p className="font-semibold">{p.label}</p>
-            <p className="text-xs text-slate-500">Connecter un compte</p>
+            <p className="text-xs text-slate-500">{(p as any).manual ? 'App password' : 'Connecter un compte'}</p>
           </button>
         ))}
       </div>

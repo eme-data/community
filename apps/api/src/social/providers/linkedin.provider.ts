@@ -7,6 +7,7 @@ import {
   SocialProvider,
   OAuthAuthorizeUrl,
   OAuthCallbackResult,
+  PostMetricsSnapshot,
   PublishInput,
   PublishResult,
 } from './social-provider.interface';
@@ -117,6 +118,32 @@ export class LinkedInProvider implements SocialProvider {
       refreshToken: refresh_token,
       expiresAt: expires_in ? new Date(Date.now() + expires_in * 1000) : undefined,
     };
+  }
+
+  async fetchMetrics(
+    account: SocialAccount,
+    providerPostId: string,
+  ): Promise<PostMetricsSnapshot | null> {
+    // socialActions returns counters scoped to a UGC post URN. Some app tiers
+    // get 403; we silently degrade in that case.
+    try {
+      const token = decrypt(account.accessToken);
+      const urn = encodeURIComponent(providerPostId);
+      const res = await axios.get(`https://api.linkedin.com/v2/socialActions/${urn}`, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'X-Restli-Protocol-Version': '2.0.0',
+        },
+      });
+      return {
+        likes: res.data?.likesSummary?.totalLikes,
+        comments: res.data?.commentsSummary?.totalFirstLevelComments,
+        raw: res.data,
+      };
+    } catch (err: any) {
+      this.logger.debug?.(`LinkedIn metrics unavailable: ${err?.message ?? err}`);
+      return null;
+    }
   }
 
   private requireEnv(name: string): string {

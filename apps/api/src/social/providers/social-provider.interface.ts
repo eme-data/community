@@ -28,9 +28,19 @@ export interface PublishResult {
   providerUrl?: string;
 }
 
+export interface PostMetricsSnapshot {
+  impressions?: number;
+  reach?: number;
+  likes?: number;
+  comments?: number;
+  shares?: number;
+  clicks?: number;
+  raw?: Record<string, unknown>;
+}
+
 export interface SocialProvider {
   /** Stable identifier matching the SocialProvider enum */
-  readonly key: 'LINKEDIN' | 'FACEBOOK' | 'INSTAGRAM' | 'TIKTOK' | 'TWITTER';
+  readonly key: 'LINKEDIN' | 'FACEBOOK' | 'INSTAGRAM' | 'TIKTOK' | 'TWITTER' | 'BLUESKY';
 
   /** Build the OAuth authorize URL for the user to begin the flow */
   buildAuthorizeUrl(input: { tenantId: string; userId: string }): OAuthAuthorizeUrl;
@@ -43,4 +53,15 @@ export interface SocialProvider {
 
   /** Refresh tokens if needed; returns updated fields or null if not applicable */
   refreshTokens?(account: SocialAccount): Promise<Partial<OAuthCallbackResult> | null>;
+
+  /**
+   * Fetch engagement metrics for a published post. Returns null if the
+   * provider does not expose metrics with the current scopes/tier.
+   * Implementations should not throw on permission errors — return null
+   * and let the metrics worker move on.
+   */
+  fetchMetrics?(
+    account: SocialAccount,
+    providerPostId: string,
+  ): Promise<PostMetricsSnapshot | null>;
 }

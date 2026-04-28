@@ -6,6 +6,7 @@ import { usePathname, useRouter } from 'next/navigation';
 import clsx from 'clsx';
 import { setToken } from '@/lib/api';
 import { TenantSwitcher } from './tenant-switcher';
+import { NotificationBell } from './notification-bell';
 
 const links = [
   { href: '/dashboard', label: 'Tableau de bord' },
@@ -15,12 +16,14 @@ const links = [
   { href: '/posts/new', label: 'Nouveau post' },
   { href: '/posts/import', label: 'Import CSV' },
   { href: '/templates', label: 'Templates' },
+  { href: '/analytics', label: 'Analytics' },
   { href: '/accounts', label: 'Comptes sociaux' },
   { href: '/settings/team', label: 'Équipe' },
   { href: '/settings/general', label: 'Général' },
   { href: '/settings/branding', label: 'Branding' },
   { href: '/settings/brand-voice', label: 'Brand voice' },
   { href: '/settings/api-keys', label: 'Clés API' },
+  { href: '/settings/webhooks', label: 'Webhooks' },
   { href: '/settings/billing', label: 'Facturation' },
   { href: '/settings/security', label: 'Sécurité' },
   { href: '/settings/audit', label: 'Audit' },
@@ -78,6 +81,7 @@ export function Nav() {
           ))}
         </ul>
         <div className="ml-auto flex items-center gap-3">
+          <NotificationBell />
           <TenantSwitcher />
           <button onClick={logout} className="text-sm text-slate-500 hover:text-red-600">
             Déconnexion
