@@ -92,7 +92,7 @@ export type Dictionary = (typeof dictionary)['fr'];
 
 export const I18nContext = createContext<{ locale: Locale; t: Dictionary }>({
   locale: DEFAULT_LOCALE,
-  t: dictionary[DEFAULT_LOCALE],
+  t: dictionary[DEFAULT_LOCALE] as Dictionary,
 });
 
 export function useI18n() {

@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import {
   DEFAULT_LOCALE,
+  Dictionary,
   I18nContext,
   Locale,
   dictionary,
@@ -17,7 +18,10 @@ export function I18nProvider({ children }: { children: React.ReactNode }) {
     setLocale(readLocaleCookie());
   }, []);
 
-  const value = useMemo(() => ({ locale, t: dictionary[locale] }), [locale]);
+  const value = useMemo(
+    () => ({ locale, t: dictionary[locale] as Dictionary }),
+    [locale],
+  );
 
   // Expose a global helper so non-React code (e.g. the locale switcher) can
   // change the language and trigger a re-render.
