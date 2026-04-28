@@ -64,6 +64,9 @@ export default function LoginPage() {
           {loading ? 'Connexion...' : 'Se connecter'}
         </button>
         <p className="text-sm text-center text-slate-500">
+          <Link className="underline" href="/forgot-password">Mot de passe oublié ?</Link>
+        </p>
+        <p className="text-sm text-center text-slate-500">
           Pas de compte ? <Link className="underline" href="/register">Créer un compte</Link>
         </p>
       </form>

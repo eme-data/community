@@ -1,13 +1,18 @@
-import { Injectable, UnauthorizedException, BadRequestException } from '@nestjs/common';
+import { Injectable, UnauthorizedException, BadRequestException, ForbiddenException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
+import { createHash, randomBytes } from 'crypto';
 import * as bcrypt from 'bcrypt';
 import { PrismaService } from '../prisma/prisma.service';
+import { MailService } from '../mail/mail.service';
+
+const RESET_TTL_MS = 1000 * 60 * 60; // 1h
 
 @Injectable()
 export class AuthService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly jwt: JwtService,
+    private readonly mail: MailService,
   ) {}
 
   async register(input: { email: string; password: string; name?: string; tenantName: string; tenantSlug: string }) {
@@ -51,6 +56,70 @@ export class AuthService {
     if (user.memberships.length === 0) throw new UnauthorizedException('No tenant assigned');
 
     return this.issueToken(user.id, user.memberships[0].tenantId);
+  }
+
+  async switchTenant(userId: string, tenantId: string) {
+    const m = await this.prisma.membership.findUnique({
+      where: { userId_tenantId: { userId, tenantId } },
+    });
+    if (!m) throw new ForbiddenException('Not a member of this tenant');
+    return this.issueToken(userId, tenantId);
+  }
+
+  /** Always returns ok — never reveals whether the email exists. */
+  async requestPasswordReset(email: string) {
+    const user = await this.prisma.user.findUnique({ where: { email } });
+    if (!user) return { ok: true };
+
+    if (!this.mail.isEnabled()) {
+      // Without SMTP, expose the token in logs so the operator can complete
+      // the flow during development. Never do this with SMTP enabled.
+      const rawToken = randomBytes(32).toString('hex');
+      const tokenHash = createHash('sha256').update(rawToken).digest('hex');
+      await this.prisma.passwordReset.create({
+        data: { userId: user.id, tokenHash, expiresAt: new Date(Date.now() + RESET_TTL_MS) },
+      });
+      // eslint-disable-next-line no-console
+      console.log(`[mail-disabled] Password reset link: ${process.env.APP_URL}/reset-password?token=${rawToken}`);
+      return { ok: true };
+    }
+
+    const rawToken = randomBytes(32).toString('hex');
+    const tokenHash = createHash('sha256').update(rawToken).digest('hex');
+    await this.prisma.passwordReset.create({
+      data: { userId: user.id, tokenHash, expiresAt: new Date(Date.now() + RESET_TTL_MS) },
+    });
+
+    const url = `${process.env.APP_URL || ''}/reset-password?token=${rawToken}`;
+    const html = `
+      <p>Vous avez demandé la réinitialisation de votre mot de passe.</p>
+      <p><a href="${url}">${url}</a></p>
+      <p>Ce lien expire dans 1h. Si vous n'êtes pas à l'origine de la demande, ignorez ce message.</p>`;
+    await this.mail.send(user.email, 'Réinitialisation de votre mot de passe — Community', html);
+    return { ok: true };
+  }
+
+  async resetPassword(rawToken: string, newPassword: string) {
+    if (!newPassword || newPassword.length < 8) {
+      throw new BadRequestException('Password must be at least 8 characters');
+    }
+    const tokenHash = createHash('sha256').update(rawToken).digest('hex');
+    const record = await this.prisma.passwordReset.findUnique({ where: { tokenHash } });
+    if (!record) throw new BadRequestException('Invalid token');
+    if (record.consumedAt) throw new BadRequestException('Token already used');
+    if (record.expiresAt < new Date()) throw new BadRequestException('Token expired');
+
+    const passwordHash = await bcrypt.hash(newPassword, 12);
+    await this.prisma.$transaction([
+      this.prisma.passwordReset.update({ where: { id: record.id }, data: { consumedAt: new Date() } }),
+      this.prisma.user.update({ where: { id: record.userId }, data: { passwordHash } }),
+      // Invalidate any other outstanding reset tokens for this user
+      this.prisma.passwordReset.updateMany({
+        where: { userId: record.userId, consumedAt: null, id: { not: record.id } },
+        data: { consumedAt: new Date() },
+      }),
+    ]);
+    return { ok: true };
   }
 
   private issueToken(userId: string, tenantId: string) {

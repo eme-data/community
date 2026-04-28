@@ -36,7 +36,7 @@ export default function PrivacyPage() {
       <p>
         Conformément au RGPD, vous disposez d'un droit d'accès, de rectification, de
         suppression et de portabilité de vos données. Contact :
-        <a href="mailto:contact@example.com"> contact@example.com</a>.
+        <a href="mailto:contact@meoxa.app"> contact@meoxa.app</a>.
       </p>
 
       <p className="text-sm text-slate-500">

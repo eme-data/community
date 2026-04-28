@@ -11,6 +11,8 @@ import {
   PublishResult,
 } from './social-provider.interface';
 
+const REFRESH_AHEAD_MS = 1000 * 60 * 60 * 24 * 7; // refresh if expiring within 7 days
+
 const AUTHORIZE_URL = 'https://www.linkedin.com/oauth/v2/authorization';
 const TOKEN_URL = 'https://www.linkedin.com/oauth/v2/accessToken';
 const USERINFO_URL = 'https://api.linkedin.com/v2/userinfo';
@@ -90,6 +92,30 @@ export class LinkedInProvider implements SocialProvider {
     return {
       providerPostId: id,
       providerUrl: id ? `https://www.linkedin.com/feed/update/${encodeURIComponent(id)}` : undefined,
+    };
+  }
+
+  async refreshTokens(account: SocialAccount): Promise<Partial<OAuthCallbackResult> | null> {
+    if (!account.refreshToken) return null;
+    if (account.expiresAt && account.expiresAt.getTime() - Date.now() > REFRESH_AHEAD_MS) {
+      return null; // not yet due
+    }
+    const refreshToken = decrypt(account.refreshToken);
+    const res = await axios.post(
+      TOKEN_URL,
+      new URLSearchParams({
+        grant_type: 'refresh_token',
+        refresh_token: refreshToken,
+        client_id: this.requireEnv('LINKEDIN_CLIENT_ID'),
+        client_secret: this.requireEnv('LINKEDIN_CLIENT_SECRET'),
+      }).toString(),
+      { headers: { 'Content-Type': 'application/x-www-form-urlencoded' } },
+    );
+    const { access_token, expires_in, refresh_token } = res.data;
+    return {
+      accessToken: access_token,
+      refreshToken: refresh_token,
+      expiresAt: expires_in ? new Date(Date.now() + expires_in * 1000) : undefined,
     };
   }
 

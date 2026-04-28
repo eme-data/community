@@ -2,6 +2,8 @@ import { Controller, Delete, Get, Param, Query, Res, UseGuards } from '@nestjs/c
 import { Response } from 'express';
 import { SocialProvider } from '@prisma/client';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
+import { RolesGuard } from '../auth/roles.guard';
+import { Roles } from '../auth/roles.decorator';
 import { CurrentUser, AuthUser } from '../auth/current-user.decorator';
 import { SocialService } from './social.service';
 
@@ -23,7 +25,8 @@ export class SocialController {
   }
 
   @Delete('accounts/:id')
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('OWNER', 'ADMIN')
   remove(@CurrentUser() user: AuthUser, @Param('id') id: string) {
     return this.social.remove(user.tenantId, id);
   }

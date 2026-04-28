@@ -2,6 +2,8 @@
 
 Plateforme **multi-tenant** de publication automatisée sur les réseaux sociaux : LinkedIn, Facebook, Instagram, TikTok (extensible). Cette application gère plusieurs organisations (tenants) via une seule installation, chaque tenant disposant de ses propres utilisateurs, comptes sociaux et calendrier de publications.
 
+🌐 **Production** : https://community.meoxa.app
+
 ---
 
 ## Architecture
@@ -38,7 +40,7 @@ git clone <ton-repo> community
 cd community
 
 # Installe Docker + UFW + secrets, build, démarre
-sudo APP_DOMAIN=community.example.com LETSENCRYPT_EMAIL=admin@example.com bash install.sh
+sudo APP_DOMAIN=community.meoxa.app LETSENCRYPT_EMAIL=admin@meoxa.app bash install.sh
 ```
 
 Le script :
@@ -155,6 +157,13 @@ Sans SMTP, l'onboarding fonctionne en mode auto-vérification (utile pour tests 
 - **Tokens OAuth** stockés chiffrés en base (AES-256-GCM, clé `TOKEN_ENCRYPTION_KEY`).
 - **Mots de passe** hashés avec bcrypt (cost 12).
 - **JWT** signés avec `JWT_SECRET` (durée par défaut : 7 jours).
+- **Headers de sécurité** via Helmet (HSTS, X-Frame-Options, etc.).
+- **Rate limiting** via `@nestjs/throttler` :
+  - global : 60 requêtes / minute / IP
+  - bucket strict sur `/auth/login`, `/auth/register`, `/auth/password/forgot|reset`, `/onboarding/email/send`
+- **RBAC** : décorateur `@Roles('OWNER','ADMIN','EDITOR','VIEWER')` + `RolesGuard` appliqué aux opérations sensibles (suppression de comptes sociaux, création/publication de posts).
+- **Refresh OAuth automatique** : un cron horaire dans le worker rafraîchit les tokens LinkedIn et TikTok proches de l'expiration.
+- **Reset password** auto-service via lien email tokenisé (1h TTL, hash sha256, à usage unique).
 - Caddy gère le TLS automatiquement.
 - Le worker tourne sur la même image que l'API mais sans port exposé.
 
@@ -196,13 +205,14 @@ docker compose down -v                   # arrêt + suppression des volumes (⚠
 - [ ] Upload de médias (images / vidéos) — stockage local ou S3
 - [ ] Pipeline complet Instagram (container + publish)
 - [ ] Pipeline complet TikTok (PULL_FROM_URL ou upload chunked)
-- [ ] OAuth refresh tokens automatique côté worker
-- [ ] Endpoint `/auth/switch-tenant` + sélecteur dans la nav
-- [ ] Guards par rôle (`OWNER`/`ADMIN`/`EDITOR`/`VIEWER`)
+- [ ] Stripe billing (les plans Starter/Pro sont actuellement décoratifs)
+- [ ] Invitations utilisateurs par tenant + email d'invitation
 - [ ] Webhooks pour récupérer les statistiques de publication
 - [ ] Tests e2e (Playwright)
+- [ ] Logs structurés (Pino) + Sentry
 - [ ] X / Twitter provider
 - [ ] Multi-image posts, threads, hashtags suggérés
+- [ ] Two-factor auth
 
 ---
 

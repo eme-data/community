@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
+import { Injectable, NotFoundException, BadRequestException, Logger } from '@nestjs/common';
 import { SocialAccount, SocialProvider as ProviderEnum } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { LinkedInProvider } from './providers/linkedin.provider';
@@ -9,6 +9,7 @@ import { encrypt } from './crypto.util';
 
 @Injectable()
 export class SocialService {
+  private readonly logger = new Logger(SocialService.name);
   private readonly providers: Record<ProviderEnum, SocialProvider | null>;
 
   constructor(
@@ -111,5 +112,48 @@ export class SocialService {
 
   publish(account: SocialAccount, input: PublishInput): Promise<PublishResult> {
     return this.getProvider(account.provider).publish(account, input);
+  }
+
+  /**
+   * Refresh OAuth tokens for accounts whose tokens expire soon. Each provider
+   * decides what "soon" means via its own `refreshTokens` implementation.
+   * Returns the number of refreshed accounts.
+   */
+  async refreshExpiring(): Promise<number> {
+    const horizon = new Date(Date.now() + 1000 * 60 * 60 * 24 * 14); // look 14 days ahead
+    const candidates = await this.prisma.socialAccount.findMany({
+      where: {
+        OR: [
+          { expiresAt: { lte: horizon } },
+          { expiresAt: null }, // still attempt — provider may decide to refresh anyway
+        ],
+        refreshToken: { not: null },
+      },
+    });
+
+    let count = 0;
+    for (const account of candidates) {
+      const provider = this.providers[account.provider];
+      if (!provider?.refreshTokens) continue;
+      try {
+        const updated = await provider.refreshTokens(account);
+        if (!updated || !updated.accessToken) continue;
+        await this.prisma.socialAccount.update({
+          where: { id: account.id },
+          data: {
+            accessToken: encrypt(updated.accessToken),
+            refreshToken: updated.refreshToken ? encrypt(updated.refreshToken) : account.refreshToken,
+            expiresAt: updated.expiresAt ?? account.expiresAt,
+            scopes: updated.scopes ?? account.scopes,
+          },
+        });
+        count++;
+      } catch (err: any) {
+        this.logger.warn(
+          `Refresh failed for ${account.provider} account ${account.id}: ${err?.message ?? err}`,
+        );
+      }
+    }
+    return count;
   }
 }

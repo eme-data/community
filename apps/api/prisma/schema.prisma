@@ -64,6 +64,7 @@ model User {
 
   memberships       Membership[]
   emailVerifications EmailVerification[]
+  passwordResets    PasswordReset[]
 }
 
 model EmailVerification {
@@ -75,6 +76,18 @@ model EmailVerification {
   expiresAt DateTime
   consumedAt DateTime?
   createdAt DateTime @default(now())
+
+  @@index([userId])
+}
+
+model PasswordReset {
+  id         String    @id @default(cuid())
+  user       User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId     String
+  tokenHash  String    @unique
+  expiresAt  DateTime
+  consumedAt DateTime?
+  createdAt  DateTime  @default(now())
 
   @@index([userId])
 }

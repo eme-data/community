@@ -1,9 +1,27 @@
 import { NestFactory } from '@nestjs/core';
 import { ValidationPipe, Logger } from '@nestjs/common';
+import helmet from 'helmet';
 import { AppModule } from './app.module';
 
 async function bootstrap() {
-  const app = await NestFactory.create(AppModule, { cors: true });
+  const app = await NestFactory.create(AppModule, {
+    cors: {
+      origin: process.env.APP_URL ? [process.env.APP_URL] : true,
+      credentials: true,
+    },
+  });
+
+  // Trust the reverse proxy (Caddy) so req.ip reflects the real client IP
+  // — crucial for rate limiting.
+  app.getHttpAdapter().getInstance().set?.('trust proxy', 1);
+
+  app.use(
+    helmet({
+      contentSecurityPolicy: false, // CSP is enforced by Caddy on the edge
+      crossOriginEmbedderPolicy: false,
+    }),
+  );
+
   app.setGlobalPrefix('api', { exclude: ['health'] });
   app.useGlobalPipes(
     new ValidationPipe({

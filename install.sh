@@ -6,7 +6,7 @@
 #
 # Usage:
 #   sudo bash install.sh
-#   sudo APP_DOMAIN=community.example.com LETSENCRYPT_EMAIL=admin@example.com bash install.sh
+#   sudo APP_DOMAIN=community.meoxa.app LETSENCRYPT_EMAIL=admin@meoxa.app bash install.sh
 # =====================================================================
 set -euo pipefail
 

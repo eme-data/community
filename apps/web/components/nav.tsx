@@ -4,10 +4,12 @@ import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import clsx from 'clsx';
 import { setToken } from '@/lib/api';
+import { TenantSwitcher } from './tenant-switcher';
 
 const links = [
   { href: '/dashboard', label: 'Tableau de bord' },
   { href: '/posts', label: 'Publications' },
+  { href: '/posts/calendar', label: 'Calendrier' },
   { href: '/posts/new', label: 'Nouveau post' },
   { href: '/accounts', label: 'Comptes sociaux' },
 ];
@@ -40,9 +42,12 @@ export function Nav() {
             </li>
           ))}
         </ul>
-        <button onClick={logout} className="ml-auto text-sm text-slate-500 hover:text-red-600">
-          Déconnexion
-        </button>
+        <div className="ml-auto flex items-center gap-3">
+          <TenantSwitcher />
+          <button onClick={logout} className="text-sm text-slate-500 hover:text-red-600">
+            Déconnexion
+          </button>
+        </div>
       </div>
     </nav>
   );

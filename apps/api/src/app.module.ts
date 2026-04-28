@@ -1,7 +1,9 @@
 import { Module } from '@nestjs/common';
+import { APP_GUARD } from '@nestjs/core';
 import { ConfigModule } from '@nestjs/config';
 import { BullModule } from '@nestjs/bullmq';
 import { ScheduleModule } from '@nestjs/schedule';
+import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
 
 import { PrismaModule } from './prisma/prisma.module';
 import { AuthModule } from './auth/auth.module';
@@ -23,6 +25,12 @@ import { HealthController } from './health.controller';
       },
     }),
     ScheduleModule.forRoot(),
+    ThrottlerModule.forRoot([
+      // Default: 60 requests / minute per IP
+      { name: 'default', ttl: 60_000, limit: 60 },
+      // Tighter bucket reserved for auth/email endpoints — opt-in via @Throttle('auth')
+      { name: 'auth', ttl: 60_000, limit: 10 },
+    ]),
     PrismaModule,
     MailModule,
     AuthModule,
@@ -34,5 +42,6 @@ import { HealthController } from './health.controller';
     OnboardingModule,
   ],
   controllers: [HealthController],
+  providers: [{ provide: APP_GUARD, useClass: ThrottlerGuard }],
 })
 export class AppModule {}

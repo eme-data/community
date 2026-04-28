@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { Suspense, useEffect, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { api } from '@/lib/api';
 
@@ -20,7 +20,7 @@ const PROVIDERS = [
   { key: 'tiktok', label: 'TikTok' },
 ];
 
-export default function AccountsPage() {
+function AccountsInner() {
   const params = useSearchParams();
   const [accounts, setAccounts] = useState<Account[]>([]);
   const [loading, setLoading] = useState(true);
@@ -85,5 +85,13 @@ export default function AccountsPage() {
         </ul>
       )}
     </div>
+  );
+}
+
+export default function AccountsPage() {
+  return (
+    <Suspense fallback={<p>Chargement...</p>}>
+      <AccountsInner />
+    </Suspense>
   );
 }

@@ -2,6 +2,7 @@ import { Injectable, Logger } from '@nestjs/common';
 import axios from 'axios';
 import { randomBytes } from 'crypto';
 import { SocialAccount } from '@prisma/client';
+import { decrypt } from '../crypto.util';
 import {
   SocialProvider,
   OAuthAuthorizeUrl,
@@ -9,6 +10,8 @@ import {
   PublishInput,
   PublishResult,
 } from './social-provider.interface';
+
+const REFRESH_AHEAD_MS = 1000 * 60 * 60 * 24; // TikTok access tokens are short-lived (24h)
 
 const AUTHORIZE_URL = 'https://www.tiktok.com/v2/auth/authorize/';
 const TOKEN_URL = 'https://open.tiktokapis.com/v2/oauth/token/';
@@ -75,6 +78,30 @@ export class TikTokProvider implements SocialProvider {
     throw new Error(
       'TikTok publishing is not implemented yet — TikTok requires a video upload via the Content Posting API.',
     );
+  }
+
+  async refreshTokens(account: SocialAccount): Promise<Partial<OAuthCallbackResult> | null> {
+    if (!account.refreshToken) return null;
+    if (account.expiresAt && account.expiresAt.getTime() - Date.now() > REFRESH_AHEAD_MS) {
+      return null;
+    }
+    const refreshToken = decrypt(account.refreshToken);
+    const res = await axios.post(
+      TOKEN_URL,
+      new URLSearchParams({
+        client_key: this.requireEnv('TIKTOK_CLIENT_KEY'),
+        client_secret: this.requireEnv('TIKTOK_CLIENT_SECRET'),
+        grant_type: 'refresh_token',
+        refresh_token: refreshToken,
+      }).toString(),
+      { headers: { 'Content-Type': 'application/x-www-form-urlencoded' } },
+    );
+    const data = res.data;
+    return {
+      accessToken: data.access_token,
+      refreshToken: data.refresh_token,
+      expiresAt: data.expires_in ? new Date(Date.now() + data.expires_in * 1000) : undefined,
+    };
   }
 
   private requireEnv(name: string): string {

@@ -1,5 +1,11 @@
+import type { Metadata } from 'next';
 import Link from 'next/link';
 import clsx from 'clsx';
+
+export const metadata: Metadata = {
+  title: 'Tarifs',
+  description: 'Plans Free, Starter et Pro. Démarrez gratuitement, payez lorsque vous grandissez.',
+};
 
 interface Tier {
   name: string;
@@ -108,7 +114,7 @@ export default function PricingPage() {
       <section className="mt-20 text-center">
         <h2 className="text-2xl font-bold mb-2">Besoin d'un plan sur mesure ?</h2>
         <p className="text-slate-600 dark:text-slate-300 mb-4">Contactez-nous pour un déploiement dédié, un SLA ou une intégration spécifique.</p>
-        <Link href="mailto:contact@example.com" className="px-6 py-2 rounded-lg border border-slate-300 dark:border-slate-700 hover:border-brand">
+        <Link href="mailto:contact@meoxa.app" className="px-6 py-2 rounded-lg border border-slate-300 dark:border-slate-700 hover:border-brand">
           Nous contacter
         </Link>
       </section>

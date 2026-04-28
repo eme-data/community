@@ -1,4 +1,10 @@
+import type { Metadata } from 'next';
 import Link from 'next/link';
+
+export const metadata: Metadata = {
+  title: 'Fonctionnalités',
+  description: 'Composez une fois, publiez partout : LinkedIn, Facebook, Instagram, TikTok. Multi-tenant, programmation, OAuth officiel.',
+};
 
 const blocks = [
   {
