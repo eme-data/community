@@ -1,6 +1,6 @@
 import { Body, Controller, Delete, Get, Param, Patch, Post, UseGuards } from '@nestjs/common';
 import { IsArray, IsOptional, IsString, MaxLength, MinLength } from 'class-validator';
-import { JwtAuthGuard } from '../auth/jwt-auth.guard';
+import { JwtOrApiKeyAuthGuard } from '../auth/jwt-or-apikey.guard';
 import { RolesGuard } from '../auth/roles.guard';
 import { Roles } from '../auth/roles.decorator';
 import { CurrentUser, AuthUser } from '../auth/current-user.decorator';
@@ -19,7 +19,7 @@ class UpdateTemplateDto {
 }
 
 @Controller('templates')
-@UseGuards(JwtAuthGuard)
+@UseGuards(JwtOrApiKeyAuthGuard)
 export class TemplatesController {
   constructor(private readonly templates: TemplatesService) {}
 

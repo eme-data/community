@@ -26,12 +26,16 @@ export class TenantsService {
     });
   }
 
-  update(tenantId: string, data: { name?: string; requireApproval?: boolean }) {
+  update(
+    tenantId: string,
+    data: { name?: string; requireApproval?: boolean; brandVoice?: unknown },
+  ) {
     return this.prisma.tenant.update({
       where: { id: tenantId },
       data: {
         ...(data.name !== undefined && { name: data.name }),
         ...(data.requireApproval !== undefined && { requireApproval: data.requireApproval }),
+        ...(data.brandVoice !== undefined && { brandVoice: data.brandVoice as any }),
       },
     });
   }

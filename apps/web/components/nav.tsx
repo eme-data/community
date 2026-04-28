@@ -17,6 +17,8 @@ const links = [
   { href: '/accounts', label: 'Comptes sociaux' },
   { href: '/settings/team', label: 'Équipe' },
   { href: '/settings/general', label: 'Général' },
+  { href: '/settings/brand-voice', label: 'Brand voice' },
+  { href: '/settings/api-keys', label: 'Clés API' },
   { href: '/settings/billing', label: 'Facturation' },
   { href: '/settings/security', label: 'Sécurité' },
   { href: '/settings/audit', label: 'Audit' },

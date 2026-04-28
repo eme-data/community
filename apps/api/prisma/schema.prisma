@@ -60,6 +60,10 @@ model Tenant {
   // and require an OWNER/ADMIN to approve before scheduling.
   requireApproval       Boolean             @default(false)
 
+  // Brand voice profile — injected into AI prompts so generated content
+  // matches the tenant's tone, vocabulary and constraints.
+  brandVoice            Json?
+
   // Stripe billing
   stripeCustomerId      String?             @unique
   stripeSubscriptionId  String?             @unique
@@ -133,6 +137,26 @@ model PasswordReset {
   createdAt  DateTime  @default(now())
 
   @@index([userId])
+}
+
+model ApiKey {
+  id              String    @id @default(cuid())
+  tenantId        String
+  name            String
+  // sha256 of the raw key — the raw apk_… key is shown to the user once,
+  // never stored in plaintext.
+  keyHash         String    @unique
+  // 4-char prefix shown to the user for identification (e.g. "apk_abcd…").
+  preview         String
+  scopes          String[]  @default(["read", "write"])
+  createdByUserId String
+  expiresAt       DateTime?
+  revokedAt       DateTime?
+  lastUsedAt      DateTime?
+  createdAt       DateTime  @default(now())
+
+  @@index([tenantId])
+  @@index([keyHash])
 }
 
 model PostTemplate {

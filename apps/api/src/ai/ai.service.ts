@@ -1,7 +1,33 @@
 import { Injectable, BadRequestException, Logger } from '@nestjs/common';
 import Anthropic from '@anthropic-ai/sdk';
+import { PrismaService } from '../prisma/prisma.service';
 
 const MODEL = 'claude-opus-4-7';
+
+interface BrandVoice {
+  tone?: string;
+  guidelines?: string;
+  doNotMention?: string[];
+  examples?: string[];
+}
+
+function brandVoiceMessage(brand: BrandVoice | null | undefined): string | null {
+  if (!brand) return null;
+  const parts: string[] = [];
+  if (brand.tone) parts.push(`Tone of voice: ${brand.tone}`);
+  if (brand.guidelines) parts.push(`Brand guidelines:\n${brand.guidelines}`);
+  if (brand.doNotMention && brand.doNotMention.length) {
+    parts.push(`Never mention: ${brand.doNotMention.join(', ')}`);
+  }
+  if (brand.examples && brand.examples.length) {
+    parts.push(
+      `Reference posts that exemplify the brand voice:\n${brand.examples
+        .map((e, i) => `${i + 1}. ${e}`)
+        .join('\n')}`,
+    );
+  }
+  return parts.length ? parts.join('\n\n') : null;
+}
 
 const HASHTAGS_SYSTEM_PROMPT = `You are a senior social media strategist. Given a post draft and a list of target social networks, return 5 to 8 hashtags that:
 - Match the post's topic, audience and tone
@@ -40,9 +66,17 @@ export class AIService {
   private readonly logger = new Logger(AIService.name);
   private readonly client: Anthropic | null;
 
-  constructor() {
+  constructor(private readonly prisma: PrismaService) {
     const apiKey = process.env.ANTHROPIC_API_KEY;
     this.client = apiKey ? new Anthropic({ apiKey }) : null;
+  }
+
+  private async getBrandVoice(tenantId: string): Promise<BrandVoice | null> {
+    const t = await this.prisma.tenant.findUnique({
+      where: { id: tenantId },
+      select: { brandVoice: true },
+    });
+    return (t?.brandVoice as BrandVoice | null) ?? null;
   }
 
   isEnabled(): boolean {
@@ -56,9 +90,17 @@ export class AIService {
     return this.client;
   }
 
-  async suggestHashtags(content: string, networks: string[]): Promise<string[]> {
+  async suggestHashtags(tenantId: string, content: string, networks: string[]): Promise<string[]> {
     const client = this.requireClient();
-    const userMessage = `Networks: ${networks.join(', ') || 'GENERIC'}\n\nPost:\n${content}`;
+    const brand = await this.getBrandVoice(tenantId);
+    const brandText = brandVoiceMessage(brand);
+    const userMessage = [
+      `Networks: ${networks.join(', ') || 'GENERIC'}`,
+      brandText ? `Brand context:\n${brandText}` : null,
+      `Post:\n${content}`,
+    ]
+      .filter(Boolean)
+      .join('\n\n');
 
     const res = await client.messages.create({
       model: MODEL,
@@ -90,9 +132,18 @@ export class AIService {
     return parsed.hashtags.map((h) => (h.startsWith('#') ? h : `#${h}`));
   }
 
-  async rewrite(content: string, network: string, tone: string): Promise<RewriteResponse> {
+  async rewrite(tenantId: string, content: string, network: string, tone: string): Promise<RewriteResponse> {
     const client = this.requireClient();
-    const userMessage = `Target network: ${network}\nTone: ${tone}\n\nOriginal post:\n${content}`;
+    const brand = await this.getBrandVoice(tenantId);
+    const brandText = brandVoiceMessage(brand);
+    const userMessage = [
+      `Target network: ${network}`,
+      `Tone: ${tone}`,
+      brandText ? `Brand context (apply on top of the requested tone):\n${brandText}` : null,
+      `Original post:\n${content}`,
+    ]
+      .filter(Boolean)
+      .join('\n\n');
 
     const res = await client.messages.create({
       model: MODEL,

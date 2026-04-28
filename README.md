@@ -272,15 +272,46 @@ content,scheduled_at,account_ids,thread
 - `scheduled_at` vide → DRAFT, sinon ISO 8601 → SCHEDULED
 - Le rapport renvoie le nombre de succès et la liste des lignes en échec avec leur erreur
 
+## API publique
+
+L'API REST est accessible aux outils tiers (Zapier, n8n, Make, CMS, scripts) via des clés API par tenant.
+
+**Génération** : `/settings/api-keys` (OWNER/ADMIN). La clé brute (`apk_…`) n'est affichée qu'une seule fois — sha256 stocké en base, jamais le clair.
+
+**Utilisation** : envoyez `Authorization: Bearer apk_…` sur les endpoints publics.
+
+**Endpoints exposés à l'API** :
+- `GET/POST /api/posts` (créer, lister, programmer, publier)
+- `POST /api/posts/:id/publish`, `DELETE /api/posts/:id/schedule`, `POST /api/posts/:id/approve|reject`
+- `POST /api/posts/bulk-import` (multipart CSV)
+- `GET/POST/DELETE /api/media`, `GET /api/media/:id/raw`
+- `GET/POST/DELETE /api/templates`
+
+Les endpoints sensibles (auth, billing, invitations, audit) restent strictement JWT (utilisateur connecté). Les rôles `OWNER`/`ADMIN`/`EDITOR`/`VIEWER` s'appliquent comme à un utilisateur normal — la clé hérite des droits de son créateur.
+
+**Exemple :**
+```bash
+curl -X POST https://community.meoxa.app/api/posts \
+  -H "Authorization: Bearer apk_xxxxxxxxxxxx" \
+  -H "Content-Type: application/json" \
+  -d '{"content": "Hello from Zapier", "accountIds": ["acc_id"], "scheduledAt": "2026-05-01T09:00:00Z"}'
+```
+
+**Révocation** : un clic sur `/settings/api-keys` — effet immédiat (toute requête ultérieure est rejetée avec 401).
+
+## Brand voice
+
+Configurable depuis `/settings/brand-voice` : ton, charte rédactionnelle, mots/marques à ne jamais mentionner, exemples de posts représentatifs. Ces consignes sont injectées dans tous les appels IA (hashtags, reformulation), donc les contenus générés respectent automatiquement l'identité de la marque sans avoir à le redonner à chaque requête.
+
 ## Roadmap restante
 
 - [ ] Webhooks pour récupérer les statistiques de publication
 - [ ] Best-time-to-post analytics
 - [ ] White-label (couleurs/logo par tenant)
-- [ ] API publique versionnée + clés API par tenant
 - [ ] A/B testing de variantes
 - [ ] Dashboard d'observabilité (Grafana/Loki)
 - [ ] i18n (fr/en)
+- [ ] OpenAPI/Swagger spec auto-générée pour l'API publique
 
 ---
 

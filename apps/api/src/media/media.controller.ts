@@ -13,7 +13,7 @@ import {
 import { FileInterceptor } from '@nestjs/platform-express';
 import type { Response } from 'express';
 import { Throttle } from '@nestjs/throttler';
-import { JwtAuthGuard } from '../auth/jwt-auth.guard';
+import { JwtOrApiKeyAuthGuard } from '../auth/jwt-or-apikey.guard';
 import { RolesGuard } from '../auth/roles.guard';
 import { Roles } from '../auth/roles.decorator';
 import { CurrentUser, AuthUser } from '../auth/current-user.decorator';
@@ -24,7 +24,7 @@ export class MediaController {
   constructor(private readonly media: MediaService) {}
 
   @Post()
-  @UseGuards(JwtAuthGuard, RolesGuard)
+  @UseGuards(JwtOrApiKeyAuthGuard, RolesGuard)
   @Roles('OWNER', 'ADMIN', 'EDITOR')
   @UseInterceptors(FileInterceptor('file'))
   @Throttle({ default: { limit: 30, ttl: 60_000 } })
@@ -33,13 +33,13 @@ export class MediaController {
   }
 
   @Get()
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(JwtOrApiKeyAuthGuard)
   list(@CurrentUser() user: AuthUser) {
     return this.media.list(user.tenantId);
   }
 
   @Delete(':id')
-  @UseGuards(JwtAuthGuard, RolesGuard)
+  @UseGuards(JwtOrApiKeyAuthGuard, RolesGuard)
   @Roles('OWNER', 'ADMIN', 'EDITOR')
   remove(@CurrentUser() user: AuthUser, @Param('id') id: string) {
     return this.media.remove(user.tenantId, id);

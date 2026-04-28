@@ -9,6 +9,9 @@ import { TenantsService } from './tenants.service';
 class UpdateTenantDto {
   @IsOptional() @IsString() name?: string;
   @IsOptional() @IsBoolean() requireApproval?: boolean;
+  // brandVoice is a free-form JSON object: { tone, guidelines, doNotMention[], examples[] }.
+  // We accept any object here; AI service applies its own shape expectations.
+  @IsOptional() brandVoice?: unknown;
 }
 
 class DeleteTenantDto {

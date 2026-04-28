@@ -4,6 +4,7 @@ import { ArrayMaxSize, IsArray, IsIn, IsString, MaxLength, MinLength } from 'cla
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { RolesGuard } from '../auth/roles.guard';
 import { Roles } from '../auth/roles.decorator';
+import { CurrentUser, AuthUser } from '../auth/current-user.decorator';
 import { AIService } from './ai.service';
 
 class HashtagsDto {
@@ -33,15 +34,15 @@ export class AIController {
   @UseGuards(RolesGuard)
   @Roles('OWNER', 'ADMIN', 'EDITOR')
   @Throttle({ default: { limit: 30, ttl: 60_000 } })
-  async hashtags(@Body() dto: HashtagsDto) {
-    return { hashtags: await this.ai.suggestHashtags(dto.content, dto.networks) };
+  async hashtags(@CurrentUser() user: AuthUser, @Body() dto: HashtagsDto) {
+    return { hashtags: await this.ai.suggestHashtags(user.tenantId, dto.content, dto.networks) };
   }
 
   @Post('rewrite')
   @UseGuards(RolesGuard)
   @Roles('OWNER', 'ADMIN', 'EDITOR')
   @Throttle({ default: { limit: 20, ttl: 60_000 } })
-  async rewrite(@Body() dto: RewriteDto) {
-    return this.ai.rewrite(dto.content, dto.network, dto.tone);
+  async rewrite(@CurrentUser() user: AuthUser, @Body() dto: RewriteDto) {
+    return this.ai.rewrite(user.tenantId, dto.content, dto.network, dto.tone);
   }
 }
