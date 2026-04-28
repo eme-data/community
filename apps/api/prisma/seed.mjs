@@ -4,7 +4,7 @@
  * Run from inside the running API container:
  *   docker compose exec api npx prisma db seed
  *
- * Idempotent: safe to run multiple times (uses upsert on natural keys).
+ * Idempotent: safe to run multiple times.
  */
 import { PrismaClient } from '@prisma/client';
 import bcrypt from 'bcrypt';
@@ -18,36 +18,57 @@ const DEMO_TENANT_SLUG = 'demo';
 async function main() {
   const passwordHash = await bcrypt.hash(DEMO_PASSWORD, 12);
 
-  const tenant = await prisma.tenant.upsert({
+  // --- Tenant ---------------------------------------------------------
+  let tenant = await prisma.tenant.findUnique({
     where: { slug: DEMO_TENANT_SLUG },
-    update: {},
-    create: {
-      slug: DEMO_TENANT_SLUG,
-      name: 'Demo Agency',
-      brandName: 'Demo Agency',
-      primaryColor: '#6366f1',
-      onboardingStep: 'done',
-      onboardingCompletedAt: new Date(),
-    },
   });
+  if (!tenant) {
+    tenant = await prisma.tenant.create({
+      data: {
+        slug: DEMO_TENANT_SLUG,
+        name: 'Demo Agency',
+        brandName: 'Demo Agency',
+        primaryColor: '#6366f1',
+        onboardingStep: 'done',
+        onboardingCompletedAt: new Date(),
+      },
+    });
+  }
 
-  const user = await prisma.user.upsert({
-    where: { email: DEMO_EMAIL },
-    update: { passwordHash, emailVerifiedAt: new Date() },
-    create: {
-      email: DEMO_EMAIL,
-      name: 'Demo Owner',
-      passwordHash,
-      emailVerifiedAt: new Date(),
-    },
+  // --- User -----------------------------------------------------------
+  let user = await prisma.user.findUnique({ where: { email: DEMO_EMAIL } });
+  if (!user) {
+    user = await prisma.user.create({
+      data: {
+        email: DEMO_EMAIL,
+        name: 'Demo Owner',
+        passwordHash,
+        emailVerifiedAt: new Date(),
+      },
+    });
+  } else {
+    user = await prisma.user.update({
+      where: { id: user.id },
+      data: { passwordHash, emailVerifiedAt: new Date() },
+    });
+  }
+
+  // --- Membership (OWNER) --------------------------------------------
+  const existingMembership = await prisma.membership.findFirst({
+    where: { userId: user.id, tenantId: tenant.id },
   });
+  if (!existingMembership) {
+    await prisma.membership.create({
+      data: { userId: user.id, tenantId: tenant.id, role: 'OWNER' },
+    });
+  } else if (existingMembership.role !== 'OWNER') {
+    await prisma.membership.update({
+      where: { id: existingMembership.id },
+      data: { role: 'OWNER' },
+    });
+  }
 
-  await prisma.membership.upsert({
-    where: { userId_tenantId: { userId: user.id, tenantId: tenant.id } },
-    update: { role: 'OWNER' },
-    create: { userId: user.id, tenantId: tenant.id, role: 'OWNER' },
-  });
-
+  // --- Templates ------------------------------------------------------
   const existingTemplates = await prisma.postTemplate.count({
     where: { tenantId: tenant.id },
   });
@@ -64,6 +85,7 @@ async function main() {
     });
   }
 
+  // --- Posts ----------------------------------------------------------
   const existingPosts = await prisma.post.count({
     where: { tenantId: tenant.id },
   });
