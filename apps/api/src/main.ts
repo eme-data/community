@@ -1,27 +1,31 @@
 import { NestFactory } from '@nestjs/core';
 import { ValidationPipe, Logger } from '@nestjs/common';
+import { Logger as PinoLogger } from 'nestjs-pino';
 import { json, raw } from 'express';
 import helmet from 'helmet';
 import { AppModule } from './app.module';
+import { initSentry } from './observability/sentry';
+import { SentryExceptionFilter } from './observability/sentry.filter';
 
 async function bootstrap() {
+  initSentry();
+
   const app = await NestFactory.create(AppModule, {
     cors: {
       origin: process.env.APP_URL ? [process.env.APP_URL] : true,
       credentials: true,
     },
-    // Disable the default body parser so we can selectively keep the raw body
-    // on the Stripe webhook route, and use JSON everywhere else.
     bodyParser: false,
+    bufferLogs: true,
   });
 
-  // Trust the reverse proxy (Caddy) so req.ip reflects the real client IP
-  // — crucial for rate limiting.
+  app.useLogger(app.get(PinoLogger));
+
   app.getHttpAdapter().getInstance().set?.('trust proxy', 1);
 
   app.use(
     helmet({
-      contentSecurityPolicy: false, // CSP is enforced by Caddy on the edge
+      contentSecurityPolicy: false,
       crossOriginEmbedderPolicy: false,
     }),
   );
@@ -31,8 +35,9 @@ async function bootstrap() {
     req.rawBody = req.body;
     next();
   });
-  // Everything else: JSON.
   app.use(json({ limit: '5mb' }));
+
+  app.useGlobalFilters(new SentryExceptionFilter());
 
   app.setGlobalPrefix('api', { exclude: ['health'] });
   app.useGlobalPipes(

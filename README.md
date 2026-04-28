@@ -200,19 +200,38 @@ docker compose down -v                   # arrêt + suppression des volumes (⚠
 
 ---
 
-## Roadmap (à compléter)
+## Observabilité
 
-- [ ] Upload de médias (images / vidéos) — stockage local ou S3
-- [ ] Pipeline complet Instagram (container + publish)
-- [ ] Pipeline complet TikTok (PULL_FROM_URL ou upload chunked)
-- [ ] Stripe billing (les plans Starter/Pro sont actuellement décoratifs)
-- [ ] Invitations utilisateurs par tenant + email d'invitation
+- **Logs structurés** via [nestjs-pino](https://github.com/iamolegga/nestjs-pino) — JSON en prod, pretty en dev. Niveau via `LOG_LEVEL`. Le `Authorization` et le `Cookie` sont redacted automatiquement.
+- **Sentry** : renseigne `SENTRY_DSN` pour activer le reporting des erreurs 5xx et exceptions non-HTTP. Les 4xx (validation, auth) ne sont pas envoyés.
+
+## Tests
+
+```bash
+cd e2e
+npm install
+npx playwright install chromium
+E2E_BASE_URL=http://localhost:3000 npm test
+```
+
+Le test golden path couvre : landing → register → onboarding (auto-vérification email en dev) → skip connexion → dashboard.
+
+## CI
+
+`.github/workflows/ci.yml` lance sur chaque push/PR :
+- build de l'API (NestJS + Prisma)
+- build du web (Next.js)
+- e2e Playwright contre Postgres + Redis dans des `services:` GitHub
+
+## Roadmap restante
+
+- [ ] Pipeline TikTok complet (status polling après PULL_FROM_URL)
 - [ ] Webhooks pour récupérer les statistiques de publication
-- [ ] Tests e2e (Playwright)
-- [ ] Logs structurés (Pino) + Sentry
 - [ ] X / Twitter provider
-- [ ] Multi-image posts, threads, hashtags suggérés
+- [ ] Threads, hashtags suggérés, IA pour reformulation
 - [ ] Two-factor auth
+- [ ] Audit log par tenant
+- [ ] Dashboard d'observabilité (Grafana/Loki)
 
 ---
 
