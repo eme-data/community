@@ -12,6 +12,7 @@ const PROVIDER_PATH: Record<string, SocialProvider> = {
   facebook: 'FACEBOOK',
   instagram: 'INSTAGRAM',
   tiktok: 'TIKTOK',
+  twitter: 'TWITTER',
 };
 
 @Controller('social')
@@ -28,7 +29,7 @@ export class SocialController {
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles('OWNER', 'ADMIN')
   remove(@CurrentUser() user: AuthUser, @Param('id') id: string) {
-    return this.social.remove(user.tenantId, id);
+    return this.social.remove(user.tenantId, id, user.userId);
   }
 
   /** Build OAuth URL — frontend redirects the browser there */

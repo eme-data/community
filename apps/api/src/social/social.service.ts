@@ -1,9 +1,11 @@
 import { Injectable, NotFoundException, BadRequestException, Logger } from '@nestjs/common';
 import { SocialAccount, SocialProvider as ProviderEnum } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
+import { AuditService } from '../audit/audit.service';
 import { LinkedInProvider } from './providers/linkedin.provider';
 import { FacebookProvider, InstagramProvider } from './providers/meta.provider';
 import { TikTokProvider } from './providers/tiktok.provider';
+import { TwitterProvider } from './providers/twitter.provider';
 import { SocialProvider, PublishInput, PublishResult } from './providers/social-provider.interface';
 import { encrypt } from './crypto.util';
 
@@ -14,17 +16,19 @@ export class SocialService {
 
   constructor(
     private readonly prisma: PrismaService,
+    private readonly audit: AuditService,
     linkedin: LinkedInProvider,
     facebook: FacebookProvider,
     instagram: InstagramProvider,
     tiktok: TikTokProvider,
+    twitter: TwitterProvider,
   ) {
     this.providers = {
       LINKEDIN: linkedin,
       FACEBOOK: facebook,
       INSTAGRAM: instagram,
       TIKTOK: tiktok,
-      TWITTER: null,
+      TWITTER: twitter,
     };
   }
 
@@ -83,6 +87,13 @@ export class SocialService {
         metadata: result.metadata as any,
       },
     });
+    await this.audit.log({
+      tenantId,
+      userId,
+      action: 'social.account.connected',
+      target: account.id,
+      payload: { provider, displayName: account.displayName },
+    });
     return account;
   }
 
@@ -103,10 +114,17 @@ export class SocialService {
     });
   }
 
-  async remove(tenantId: string, accountId: string) {
+  async remove(tenantId: string, accountId: string, userId?: string) {
     const acc = await this.prisma.socialAccount.findFirst({ where: { id: accountId, tenantId } });
     if (!acc) throw new NotFoundException('Account not found');
     await this.prisma.socialAccount.delete({ where: { id: accountId } });
+    await this.audit.log({
+      tenantId,
+      userId,
+      action: 'social.account.disconnected',
+      target: accountId,
+      payload: { provider: acc.provider, displayName: acc.displayName },
+    });
     return { ok: true };
   }
 

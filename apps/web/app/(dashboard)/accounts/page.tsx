@@ -18,6 +18,7 @@ const PROVIDERS = [
   { key: 'facebook', label: 'Facebook' },
   { key: 'instagram', label: 'Instagram' },
   { key: 'tiktok', label: 'TikTok' },
+  { key: 'twitter', label: 'X (Twitter)' },
 ];
 
 function AccountsInner() {

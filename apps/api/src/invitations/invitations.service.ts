@@ -4,6 +4,7 @@ import * as bcrypt from 'bcrypt';
 import { Role } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { MailService } from '../mail/mail.service';
+import { AuditService } from '../audit/audit.service';
 
 const TTL_MS = 1000 * 60 * 60 * 24 * 7; // 7 days
 
@@ -12,6 +13,7 @@ export class InvitationsService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly mail: MailService,
+    private readonly audit: AuditService,
   ) {}
 
   async create(tenantId: string, invitedByUserId: string, email: string, role: Role) {
@@ -46,6 +48,14 @@ export class InvitationsService {
       <p>Cliquez ici pour accepter : <a href="${url}">${url}</a></p>
       <p>Ce lien expire dans 7 jours.</p>`;
     await this.mail.send(email, `Invitation à rejoindre ${tenant.name} — Community`, html);
+
+    await this.audit.log({
+      tenantId,
+      userId: invitedByUserId,
+      action: 'invitation.sent',
+      target: invitation.id,
+      payload: { email, role },
+    });
 
     return { id: invitation.id, email, role, expiresAt: invitation.expiresAt };
   }
@@ -122,6 +132,14 @@ export class InvitationsService {
         data: { consumedAt: new Date() },
       }),
     ]);
+
+    await this.audit.log({
+      tenantId: inv.tenantId,
+      userId: user.id,
+      action: 'invitation.accepted',
+      target: inv.id,
+      payload: { email: inv.email, role: inv.role },
+    });
 
     return { userId: user.id, tenantId: inv.tenantId };
   }

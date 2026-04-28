@@ -1,13 +1,15 @@
 import { Module, forwardRef } from '@nestjs/common';
 import { MediaModule } from '../media/media.module';
+import { AuditModule } from '../audit/audit.module';
 import { SocialController } from './social.controller';
 import { SocialService } from './social.service';
 import { LinkedInProvider } from './providers/linkedin.provider';
 import { FacebookProvider, InstagramProvider } from './providers/meta.provider';
 import { TikTokProvider } from './providers/tiktok.provider';
+import { TwitterProvider } from './providers/twitter.provider';
 
 @Module({
-  imports: [MediaModule],
+  imports: [MediaModule, AuditModule],
   controllers: [SocialController],
   providers: [
     SocialService,
@@ -15,6 +17,7 @@ import { TikTokProvider } from './providers/tiktok.provider';
     FacebookProvider,
     InstagramProvider,
     TikTokProvider,
+    TwitterProvider,
   ],
   exports: [SocialService],
 })

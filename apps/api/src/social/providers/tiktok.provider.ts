@@ -110,7 +110,30 @@ export class TikTokProvider implements SocialProvider {
     );
     const publishId = initRes.data?.data?.publish_id as string;
     if (!publishId) throw new Error('TikTok did not return a publish_id');
+
+    // Poll the status endpoint until TikTok says the post is fully published
+    // or fails. Typical lead time: ~30s for short videos, longer for larger ones.
+    await this.pollPublishStatus(publishId, token);
     return { providerPostId: publishId };
+  }
+
+  private async pollPublishStatus(publishId: string, token: string): Promise<void> {
+    const maxAttempts = 60; // ~5 min at 5s
+    for (let i = 0; i < maxAttempts; i++) {
+      const res = await axios.post(
+        'https://open.tiktokapis.com/v2/post/publish/status/fetch/',
+        { publish_id: publishId },
+        { headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' } },
+      );
+      const status = res.data?.data?.status as string | undefined;
+      if (status === 'PUBLISH_COMPLETE' || status === 'SEND_TO_USER_INBOX') return;
+      if (status === 'FAILED') {
+        const reason = res.data?.data?.fail_reason || 'unknown';
+        throw new Error(`TikTok publishing failed: ${reason}`);
+      }
+      await new Promise((r) => setTimeout(r, 5000));
+    }
+    throw new Error('TikTok publishing did not complete in time');
   }
 
   async refreshTokens(account: SocialAccount): Promise<Partial<OAuthCallbackResult> | null> {

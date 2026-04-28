@@ -164,6 +164,8 @@ Sans SMTP, l'onboarding fonctionne en mode auto-vérification (utile pour tests 
 - **RBAC** : décorateur `@Roles('OWNER','ADMIN','EDITOR','VIEWER')` + `RolesGuard` appliqué aux opérations sensibles (suppression de comptes sociaux, création/publication de posts).
 - **Refresh OAuth automatique** : un cron horaire dans le worker rafraîchit les tokens LinkedIn et TikTok proches de l'expiration.
 - **Reset password** auto-service via lien email tokenisé (1h TTL, hash sha256, à usage unique).
+- **2FA TOTP** : activable depuis `/settings/security` (QR code + secret chiffré AES-256-GCM en base). Au login, un challenge JWT de 5 min est échangé contre un access token via `/auth/2fa/verify`.
+- **Audit log** : chaque tenant peut consulter ses 200 derniers événements depuis `/settings/audit` (publications, comptes connectés, invitations…).
 - Caddy gère le TLS automatiquement.
 - Le worker tourne sur la même image que l'API mais sans port exposé.
 
@@ -225,13 +227,12 @@ Le test golden path couvre : landing → register → onboarding (auto-vérifica
 
 ## Roadmap restante
 
-- [ ] Pipeline TikTok complet (status polling après PULL_FROM_URL)
 - [ ] Webhooks pour récupérer les statistiques de publication
-- [ ] X / Twitter provider
-- [ ] Threads, hashtags suggérés, IA pour reformulation
-- [ ] Two-factor auth
-- [ ] Audit log par tenant
+- [ ] Threads X (multi-tweet), hashtags suggérés, IA pour reformulation
+- [ ] Codes de récupération 2FA (backup codes)
 - [ ] Dashboard d'observabilité (Grafana/Loki)
+- [ ] Soft-delete pour tenants/posts (GDPR)
+- [ ] Export CSV du journal d'audit
 
 ---
 

@@ -3,6 +3,7 @@ import { Logger } from '@nestjs/common';
 import { Job } from 'bullmq';
 import { PrismaService } from '../prisma/prisma.service';
 import { SocialService } from '../social/social.service';
+import { AuditService } from '../audit/audit.service';
 
 @Processor('post-publish')
 export class PostPublishProcessor extends WorkerHost {
@@ -11,6 +12,7 @@ export class PostPublishProcessor extends WorkerHost {
   constructor(
     private readonly prisma: PrismaService,
     private readonly social: SocialService,
+    private readonly audit: AuditService,
   ) {
     super();
   }
@@ -74,6 +76,16 @@ export class PostPublishProcessor extends WorkerHost {
       data: {
         status: allOk ? 'PUBLISHED' : 'FAILED',
         publishedAt: allOk ? new Date() : null,
+      },
+    });
+
+    await this.audit.log({
+      tenantId: post.tenantId,
+      userId: post.authorUserId,
+      action: allOk ? 'post.published' : 'post.failed',
+      target: postId,
+      payload: {
+        targets: post.targets.map((t) => ({ provider: t.account.provider, status: t.status })),
       },
     });
 

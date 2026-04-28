@@ -2,12 +2,14 @@ import { Injectable, NotFoundException, BadRequestException } from '@nestjs/comm
 import { InjectQueue } from '@nestjs/bullmq';
 import { Queue } from 'bullmq';
 import { PrismaService } from '../prisma/prisma.service';
+import { AuditService } from '../audit/audit.service';
 import { CreatePostDto } from './dto/create-post.dto';
 
 @Injectable()
 export class PostsService {
   constructor(
     private readonly prisma: PrismaService,
+    private readonly audit: AuditService,
     @InjectQueue('post-publish') private readonly queue: Queue,
   ) {}
 
@@ -73,6 +75,14 @@ export class PostsService {
     if (scheduledAt) {
       await this.enqueue(post.id, scheduledAt);
     }
+
+    await this.audit.log({
+      tenantId,
+      userId,
+      action: scheduledAt ? 'post.scheduled' : 'post.draft.created',
+      target: post.id,
+      payload: { accountIds: dto.accountIds, scheduledAt: scheduledAt?.toISOString() },
+    });
 
     return post;
   }

@@ -72,17 +72,22 @@ model Tenant {
 }
 
 model User {
-  id                String              @id @default(cuid())
-  email             String              @unique
-  passwordHash      String
-  name              String?
-  emailVerifiedAt   DateTime?
-  createdAt         DateTime            @default(now())
-  updatedAt         DateTime            @updatedAt
+  id                 String              @id @default(cuid())
+  email              String              @unique
+  passwordHash       String
+  name               String?
+  emailVerifiedAt    DateTime?
 
-  memberships       Membership[]
+  // Two-factor (TOTP). Secret is encrypted with TOKEN_ENCRYPTION_KEY.
+  totpSecret         String?
+  totpEnabledAt      DateTime?
+
+  createdAt          DateTime            @default(now())
+  updatedAt          DateTime            @updatedAt
+
+  memberships        Membership[]
   emailVerifications EmailVerification[]
-  passwordResets    PasswordReset[]
+  passwordResets     PasswordReset[]
 }
 
 model EmailVerification {
@@ -108,6 +113,21 @@ model PasswordReset {
   createdAt  DateTime  @default(now())
 
   @@index([userId])
+}
+
+model AuditLog {
+  id        String   @id @default(cuid())
+  tenantId  String
+  userId    String?
+  action    String   // e.g. 'post.created', 'social.account.connected', 'invitation.sent'
+  target    String?  // optional id of the affected resource
+  payload   Json?
+  ip        String?
+  userAgent String?
+  createdAt DateTime @default(now())
+
+  @@index([tenantId, createdAt])
+  @@index([action])
 }
 
 model Invitation {

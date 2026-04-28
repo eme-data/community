@@ -14,6 +14,8 @@ const links = [
   { href: '/accounts', label: 'Comptes sociaux' },
   { href: '/settings/team', label: 'Équipe' },
   { href: '/settings/billing', label: 'Facturation' },
+  { href: '/settings/security', label: 'Sécurité' },
+  { href: '/settings/audit', label: 'Audit' },
 ];
 
 export function Nav() {
