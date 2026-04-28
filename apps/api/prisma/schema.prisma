@@ -64,6 +64,13 @@ model Tenant {
   // matches the tenant's tone, vocabulary and constraints.
   brandVoice            Json?
 
+  // White-label theming. logoMediaId references a MediaAsset uploaded via
+  // the standard /media endpoint; the public /api/media/:id/raw URL is used
+  // as the logo <img src>.
+  brandName             String?
+  primaryColor          String?
+  logoMediaId           String?
+
   // Stripe billing
   stripeCustomerId      String?             @unique
   stripeSubscriptionId  String?             @unique

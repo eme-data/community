@@ -4,6 +4,9 @@
 
 :root {
   color-scheme: light dark;
+  /* Default brand palette — overridden per tenant by ThemeInjector */
+  --brand-rgb: 79 70 229;       /* #4f46e5 */
+  --brand-dark-rgb: 55 48 163;  /* #3730a3 */
 }
 
 body {

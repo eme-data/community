@@ -1,4 +1,5 @@
 import { Body, Controller, Delete, Get, Param, Patch, Post, UseGuards } from '@nestjs/common';
+import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import { IsArray, IsOptional, IsString, MaxLength, MinLength } from 'class-validator';
 import { JwtOrApiKeyAuthGuard } from '../auth/jwt-or-apikey.guard';
 import { RolesGuard } from '../auth/roles.guard';
@@ -18,6 +19,8 @@ class UpdateTemplateDto {
   @IsOptional() @IsArray() @IsString({ each: true }) thread?: string[];
 }
 
+@ApiTags('Public API · Templates')
+@ApiBearerAuth()
 @Controller('templates')
 @UseGuards(JwtOrApiKeyAuthGuard)
 export class TemplatesController {

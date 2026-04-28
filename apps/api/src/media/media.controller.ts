@@ -10,6 +10,7 @@ import {
   UseInterceptors,
   NotFoundException,
 } from '@nestjs/common';
+import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { FileInterceptor } from '@nestjs/platform-express';
 import type { Response } from 'express';
 import { Throttle } from '@nestjs/throttler';
@@ -19,6 +20,8 @@ import { Roles } from '../auth/roles.decorator';
 import { CurrentUser, AuthUser } from '../auth/current-user.decorator';
 import { MediaService } from './media.service';
 
+@ApiTags('Public API · Media')
+@ApiBearerAuth()
 @Controller('media')
 export class MediaController {
   constructor(private readonly media: MediaService) {}

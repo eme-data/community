@@ -303,15 +303,45 @@ curl -X POST https://community.meoxa.app/api/posts \
 
 Configurable depuis `/settings/brand-voice` : ton, charte rédactionnelle, mots/marques à ne jamais mentionner, exemples de posts représentatifs. Ces consignes sont injectées dans tous les appels IA (hashtags, reformulation), donc les contenus générés respectent automatiquement l'identité de la marque sans avoir à le redonner à chaque requête.
 
+## OpenAPI / Swagger
+
+L'API publique est documentée automatiquement à partir des décorateurs NestJS. Une fois le stack démarré, ouvre :
+
+```
+https://community.meoxa.app/api/docs
+```
+
+Tu peux y essayer chaque endpoint en ajoutant un JWT ou une clé API dans le bouton **Authorize**. La spec brute est exposée à `/api/docs-json` et peut être importée dans Postman, Insomnia, ou regénérer un client typé via `openapi-generator`.
+
+## White-label
+
+Chaque tenant peut personnaliser : nom affiché (brandName), couleur primaire, logo. Édition via `/settings/branding`.
+
+- Le logo est uploadé via le pipeline Media existant (donc multi-tenant, sécurisé).
+- La couleur primaire est injectée en CSS variables (`--brand-rgb`, `--brand-dark-rgb`) — toutes les classes Tailwind `bg-brand`, `text-brand`, `bg-brand/15`, etc., suivent automatiquement.
+- Le `ThemeInjector` ne tourne que dans le dashboard : la vitrine publique garde l'identité Community.
+
+Pour aller plus loin (couleurs personnalisées dans les emails, sous-domaine custom par tenant, page d'invitation white-labellée) — extensions naturelles à partir des champs déjà en place sur `Tenant`.
+
+## Internationalisation (fr / en)
+
+Infrastructure i18n basée sur cookie + provider React :
+
+- Cookie `community.locale` (TTL 1 an), valeurs `fr` (défaut) | `en`.
+- Sélecteur dans le header marketing (FR / EN dropdown).
+- Le dictionnaire vit dans [`apps/web/lib/i18n.ts`](apps/web/lib/i18n.ts) — un objet par locale, autocomplétion typée.
+- Couvert dans cette première itération : header marketing + landing page complète.
+- À traduire dans les itérations suivantes : pages features/pricing/legal, login/register/onboarding, dashboard. Le dictionnaire est extensible — il suffit d'ajouter les clés et de remplacer les chaînes en dur par `t.section.cle`.
+
 ## Roadmap restante
 
-- [ ] Webhooks pour récupérer les statistiques de publication
-- [ ] Best-time-to-post analytics
-- [ ] White-label (couleurs/logo par tenant)
+- [ ] Webhooks pour récupérer les statistiques de publication (engagement par post)
+- [ ] Best-time-to-post analytics (dépend des stats ci-dessus)
 - [ ] A/B testing de variantes
-- [ ] Dashboard d'observabilité (Grafana/Loki)
-- [ ] i18n (fr/en)
-- [ ] OpenAPI/Swagger spec auto-générée pour l'API publique
+- [ ] Dashboard d'observabilité (Grafana/Loki) — opt-in via `docker-compose.observability.yml`
+- [ ] Étendre l'i18n au dashboard et aux pages onboarding/login
+- [ ] Sous-domaine custom par tenant (`agence-x.community.meoxa.app`)
+- [ ] Webhooks sortants (notifier ton CMS quand un post est publié)
 
 ---
 

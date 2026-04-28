@@ -12,6 +12,11 @@ class UpdateTenantDto {
   // brandVoice is a free-form JSON object: { tone, guidelines, doNotMention[], examples[] }.
   // We accept any object here; AI service applies its own shape expectations.
   @IsOptional() brandVoice?: unknown;
+
+  // White-label fields
+  @IsOptional() @IsString() brandName?: string | null;
+  @IsOptional() @IsString() primaryColor?: string | null;
+  @IsOptional() @IsString() logoMediaId?: string | null;
 }
 
 class DeleteTenantDto {

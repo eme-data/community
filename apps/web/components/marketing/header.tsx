@@ -3,13 +3,10 @@
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
 import clsx from 'clsx';
-
-const links = [
-  { href: '/features', label: 'Fonctionnalités' },
-  { href: '/pricing', label: 'Tarifs' },
-];
+import { useI18n, Locale, LOCALES } from '@/lib/i18n';
 
 export function MarketingHeader() {
+  const { locale, t } = useI18n();
   const [authed, setAuthed] = useState(false);
   const [open, setOpen] = useState(false);
 
@@ -17,6 +14,17 @@ export function MarketingHeader() {
     if (typeof window === 'undefined') return;
     setAuthed(!!localStorage.getItem('community.token'));
   }, []);
+
+  function setLocale(next: Locale) {
+    if (typeof window !== 'undefined' && (window as any).__community_setLocale) {
+      (window as any).__community_setLocale(next);
+    }
+  }
+
+  const links = [
+    { href: '/features', label: t.nav.features },
+    { href: '/pricing', label: t.nav.pricing },
+  ];
 
   return (
     <header className="border-b border-slate-200 dark:border-slate-800 bg-white/80 dark:bg-slate-950/80 backdrop-blur sticky top-0 z-30">
@@ -28,12 +36,22 @@ export function MarketingHeader() {
           ))}
         </nav>
         <div className="ml-auto flex items-center gap-2">
+          <select
+            aria-label={t.locale.switchTo}
+            value={locale}
+            onChange={(e) => setLocale(e.target.value as Locale)}
+            className="text-xs px-2 py-1 rounded border border-slate-300 dark:border-slate-700 bg-transparent"
+          >
+            {LOCALES.map(l => (
+              <option key={l} value={l}>{l.toUpperCase()}</option>
+            ))}
+          </select>
           {authed ? (
-            <Link href="/dashboard" className="px-4 py-2 rounded bg-brand text-white text-sm">Tableau de bord</Link>
+            <Link href="/dashboard" className="px-4 py-2 rounded bg-brand text-white text-sm">{t.nav.dashboard}</Link>
           ) : (
             <>
-              <Link href="/login" className="px-3 py-2 text-sm hover:text-brand">Connexion</Link>
-              <Link href="/register" className="px-4 py-2 rounded bg-brand text-white text-sm hover:bg-brand-dark">Démarrer gratuitement</Link>
+              <Link href="/login" className="px-3 py-2 text-sm hover:text-brand">{t.nav.login}</Link>
+              <Link href="/register" className="px-4 py-2 rounded bg-brand text-white text-sm hover:bg-brand-dark">{t.nav.signup}</Link>
             </>
           )}
           <button

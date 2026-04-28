@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 import './globals.css';
+import { I18nProvider } from '@/components/i18n-provider';
 
 export const metadata: Metadata = {
   metadataBase: new URL('https://community.meoxa.app'),
@@ -24,7 +25,9 @@ export const metadata: Metadata = {
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="fr">
-      <body>{children}</body>
+      <body>
+        <I18nProvider>{children}</I18nProvider>
+      </body>
     </html>
   );
 }

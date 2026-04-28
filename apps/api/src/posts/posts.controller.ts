@@ -1,4 +1,5 @@
 import { Body, Controller, Delete, Get, Param, Post, UseGuards } from '@nestjs/common';
+import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { IsOptional, IsString } from 'class-validator';
 import { JwtOrApiKeyAuthGuard } from '../auth/jwt-or-apikey.guard';
 import { RolesGuard } from '../auth/roles.guard';
@@ -11,12 +12,15 @@ class RejectDto {
   @IsOptional() @IsString() reason?: string;
 }
 
+@ApiTags('Public API · Posts')
+@ApiBearerAuth()
 @Controller('posts')
 @UseGuards(JwtOrApiKeyAuthGuard)
 export class PostsController {
   constructor(private readonly posts: PostsService) {}
 
   @Get()
+  @ApiOperation({ summary: 'List all posts in the current tenant' })
   list(@CurrentUser() user: AuthUser) {
     return this.posts.list(user.tenantId);
   }
@@ -34,6 +38,11 @@ export class PostsController {
   }
 
   @Post()
+  @ApiOperation({
+    summary: 'Create a post',
+    description:
+      'Creates a draft (no scheduledAt) or a scheduled post. With approval enabled, EDITOR-authored posts land in PENDING_APPROVAL.',
+  })
   @UseGuards(RolesGuard)
   @Roles('OWNER', 'ADMIN', 'EDITOR')
   create(@CurrentUser() user: AuthUser, @Body() dto: CreatePostDto) {

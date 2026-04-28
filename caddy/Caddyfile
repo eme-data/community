@@ -5,8 +5,14 @@
 {$APP_DOMAIN} {
 	encode zstd gzip
 
-	# API routes go to the NestJS backend
-	handle_path /api/* {
+	# API routes go to the NestJS backend.
+	# Use `handle` (not `handle_path`) so the /api prefix is preserved —
+	# NestJS sets it via app.setGlobalPrefix('api') and would 404 on stripped paths.
+	# This also lets Swagger UI live at /api/docs without a strip mismatch.
+	handle /api/* {
+		reverse_proxy api:3001
+	}
+	handle /api {
 		reverse_proxy api:3001
 	}
 

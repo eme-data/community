@@ -5,7 +5,12 @@ const config: Config = {
   theme: {
     extend: {
       colors: {
-        brand: { DEFAULT: '#4f46e5', dark: '#3730a3' },
+        // Driven by CSS variables defined in globals.css; ThemeInjector overrides
+        // them at runtime per tenant for white-labelled dashboards.
+        brand: {
+          DEFAULT: 'rgb(var(--brand-rgb) / <alpha-value>)',
+          dark: 'rgb(var(--brand-dark-rgb) / <alpha-value>)',
+        },
       },
     },
   },

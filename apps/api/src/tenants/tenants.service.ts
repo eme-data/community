@@ -28,7 +28,14 @@ export class TenantsService {
 
   update(
     tenantId: string,
-    data: { name?: string; requireApproval?: boolean; brandVoice?: unknown },
+    data: {
+      name?: string;
+      requireApproval?: boolean;
+      brandVoice?: unknown;
+      brandName?: string | null;
+      primaryColor?: string | null;
+      logoMediaId?: string | null;
+    },
   ) {
     return this.prisma.tenant.update({
       where: { id: tenantId },
@@ -36,6 +43,9 @@ export class TenantsService {
         ...(data.name !== undefined && { name: data.name }),
         ...(data.requireApproval !== undefined && { requireApproval: data.requireApproval }),
         ...(data.brandVoice !== undefined && { brandVoice: data.brandVoice as any }),
+        ...(data.brandName !== undefined && { brandName: data.brandName }),
+        ...(data.primaryColor !== undefined && { primaryColor: data.primaryColor }),
+        ...(data.logoMediaId !== undefined && { logoMediaId: data.logoMediaId }),
       },
     });
   }
