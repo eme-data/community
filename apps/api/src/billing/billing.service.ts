@@ -12,7 +12,7 @@ export class BillingService {
 
   constructor(private readonly prisma: PrismaService) {
     const key = process.env.STRIPE_SECRET_KEY;
-    this.stripe = key ? new Stripe(key, { apiVersion: '2024-09-30.acacia' }) : null;
+    this.stripe = key ? new Stripe(key, { apiVersion: '2025-02-24.acacia' }) : null;
 
     if (process.env.STRIPE_PRICE_STARTER) PRICE_TO_PLAN[process.env.STRIPE_PRICE_STARTER] = 'STARTER';
     if (process.env.STRIPE_PRICE_PRO) PRICE_TO_PLAN[process.env.STRIPE_PRICE_PRO] = 'PRO';
