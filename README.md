@@ -35,29 +35,42 @@ Plateforme **multi-tenant** de publication automatisée sur les réseaux sociaux
 
 ## Démarrage rapide (Ubuntu 24.04)
 
-```bash
-git clone <ton-repo> community
-cd community
+Une seule commande suffit — Docker, UFW, secrets, build et HTTPS sont tous configurés automatiquement :
 
-# Installe Docker + UFW + secrets, build, démarre
-sudo APP_DOMAIN=community.meoxa.app LETSENCRYPT_EMAIL=admin@meoxa.app bash install.sh
+```bash
+git clone <ton-repo> community && cd community
+sudo bash install.sh community.meoxa.app admin@meoxa.app
+```
+
+Ou en remote, sans cloner manuellement :
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/<user>/community/main/install.sh \
+  | sudo bash -s -- community.meoxa.app admin@meoxa.app
 ```
 
 Le script :
-1. installe Docker Engine + plugin Compose,
+1. installe Docker Engine + plugin Compose (via `get.docker.com`),
 2. ouvre les ports 22/80/443 sur UFW,
-3. génère un `.env` avec des secrets aléatoires,
-4. construit les images et lance le stack.
+3. génère un `.env` avec des secrets aléatoires et y substitue ton domaine,
+4. construit les images et lance le stack avec **HTTPS activé par défaut**.
 
-Pointe ensuite ton DNS A vers l'IP du serveur. Caddy émettra automatiquement un certificat Let's Encrypt.
+### HTTPS toujours activé
 
-### Sans domaine (test local)
+Caddy gère le TLS automatiquement et choisit la stratégie selon ce qui est passé à `install.sh` :
+
+| Cas                                                      | Certificat utilisé          |
+|----------------------------------------------------------|-----------------------------|
+| Domaine public dont le DNS A pointe sur le serveur       | **Let's Encrypt** (auto)    |
+| IP, `localhost` ou domaine non résolu                    | **CA interne Caddy** (self-signed — avertissement navigateur à accepter une fois) |
+
+### Sans domaine (test local ou IP brute)
 
 ```bash
-cp .env.example .env
-# Remplis APP_DOMAIN=localhost et utilise http (Caddy ne pourra pas faire HTTPS)
-docker compose up -d
+sudo bash install.sh
 ```
+
+Sans argument, le script utilise l'IP publique du serveur comme `APP_DOMAIN` et sert un certificat self-signed via Caddy.
 
 ---
 

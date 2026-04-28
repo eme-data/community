@@ -1,128 +1,94 @@
 #!/usr/bin/env bash
 # =====================================================================
-# Community — Ubuntu 24.04 install script
-# Installs Docker + Docker Compose, prepares the .env file and brings
-# the stack up. Run as a user with sudo privileges.
+# Community — installation Ubuntu 24.04 en une commande
 #
-# Usage:
+# Usage :
 #   sudo bash install.sh
-#   sudo APP_DOMAIN=community.meoxa.app LETSENCRYPT_EMAIL=admin@meoxa.app bash install.sh
+#   sudo bash install.sh community.meoxa.app admin@meoxa.app
+#   curl -fsSL https://raw.githubusercontent.com/<user>/community/main/install.sh \
+#     | sudo bash -s -- community.meoxa.app admin@meoxa.app
+#
+# Le HTTPS est toujours activé :
+#   - domaine public résolu en DNS  → certificat Let's Encrypt (auto via Caddy)
+#   - sinon (IP, localhost, etc.)   → certificat interne Caddy (self-signed)
 # =====================================================================
 set -euo pipefail
 
-if [[ "${EUID}" -ne 0 ]]; then
-  echo "Please run as root (sudo bash install.sh)" >&2
-  exit 1
-fi
+[[ $EUID -eq 0 ]] || { echo "Lance ce script en root : sudo bash install.sh" >&2; exit 1; }
+cd "$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" &>/dev/null && pwd)"
 
-# Detect the project directory (where this script lives)
-SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" &>/dev/null && pwd)"
-cd "${SCRIPT_DIR}"
+DOMAIN="${1:-${APP_DOMAIN:-}}"
+EMAIL="${2:-${LETSENCRYPT_EMAIL:-}}"
 
-# --- 1. System checks -----------------------------------------------
-. /etc/os-release
-if [[ "${ID}" != "ubuntu" ]] || [[ "${VERSION_ID}" != "24.04" ]]; then
-  echo "[warn] This script is tuned for Ubuntu 24.04 (detected: ${PRETTY_NAME}). Continuing anyway..."
-fi
-
-echo "[1/6] Updating apt and installing prerequisites..."
+# --- 1. Paquets système + Docker (script officiel get.docker.com) ----
+echo "[1/4] Installation des paquets système et Docker..."
 apt-get update -y
-apt-get install -y \
-  ca-certificates \
-  curl \
-  gnupg \
-  lsb-release \
-  ufw \
-  openssl \
-  make
+apt-get install -y ca-certificates curl ufw openssl dnsutils
+command -v docker >/dev/null 2>&1 || curl -fsSL https://get.docker.com | sh
+systemctl enable --now docker
+[[ -n "${SUDO_USER:-}" ]] && usermod -aG docker "$SUDO_USER" || true
 
-# --- 2. Docker Engine + Compose plugin ------------------------------
-if ! command -v docker >/dev/null 2>&1; then
-  echo "[2/6] Installing Docker Engine..."
-  install -m 0755 -d /etc/apt/keyrings
-  curl -fsSL https://download.docker.com/linux/ubuntu/gpg | gpg --dearmor --yes -o /etc/apt/keyrings/docker.gpg
-  chmod a+r /etc/apt/keyrings/docker.gpg
-  echo \
-    "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/ubuntu \
-    $(. /etc/os-release && echo "${VERSION_CODENAME}") stable" \
-    > /etc/apt/sources.list.d/docker.list
-  apt-get update -y
-  apt-get install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
-  systemctl enable --now docker
-else
-  echo "[2/6] Docker already installed — skipping."
-fi
+# --- 2. Pare-feu ----------------------------------------------------
+echo "[2/4] Configuration UFW (22/80/443)..."
+ufw allow OpenSSH >/dev/null
+ufw allow 80/tcp  >/dev/null
+ufw allow 443/tcp >/dev/null
+ufw --force enable >/dev/null
 
-# Add the calling user (if any) to the docker group so they can use docker without sudo
-if [[ -n "${SUDO_USER:-}" ]] && id "${SUDO_USER}" >/dev/null 2>&1; then
-  usermod -aG docker "${SUDO_USER}" || true
-fi
-
-# --- 3. Firewall ----------------------------------------------------
-echo "[3/6] Configuring UFW (allowing 22, 80, 443)..."
-ufw allow OpenSSH || true
-ufw allow 80/tcp || true
-ufw allow 443/tcp || true
-ufw --force enable || true
-
-# --- 4. .env preparation --------------------------------------------
-echo "[4/6] Preparing .env..."
+# --- 3. .env (secrets auto-générés, HTTPS forcé) --------------------
+echo "[3/4] Préparation du .env..."
 if [[ ! -f .env ]]; then
   cp .env.example .env
+  PG=$(openssl rand -hex 24)
+  JW=$(openssl rand -hex 48)
+  TK=$(openssl rand -hex 32)
 
-  # Generate strong secrets if the user hasn't customized .env yet
-  POSTGRES_PASSWORD_GEN="$(openssl rand -hex 24)"
-  JWT_SECRET_GEN="$(openssl rand -hex 48)"
-  TOKEN_KEY_GEN="$(openssl rand -hex 32)"
-
-  sed -i "s|^POSTGRES_PASSWORD=.*|POSTGRES_PASSWORD=${POSTGRES_PASSWORD_GEN}|" .env
-  sed -i "s|^JWT_SECRET=.*|JWT_SECRET=${JWT_SECRET_GEN}|" .env
-  sed -i "s|^TOKEN_ENCRYPTION_KEY=.*|TOKEN_ENCRYPTION_KEY=${TOKEN_KEY_GEN}|" .env
-  # Refresh DATABASE_URL accordingly
-  sed -i "s|^DATABASE_URL=.*|DATABASE_URL=postgresql://community:${POSTGRES_PASSWORD_GEN}@postgres:5432/community?schema=public|" .env
-
-  if [[ -n "${APP_DOMAIN:-}" ]]; then
-    sed -i "s|^APP_DOMAIN=.*|APP_DOMAIN=${APP_DOMAIN}|" .env
-    sed -i "s|^APP_URL=.*|APP_URL=https://${APP_DOMAIN}|" .env
-    sed -i "s|^API_URL=.*|API_URL=https://${APP_DOMAIN}/api|" .env
-    sed -i "s|^NEXT_PUBLIC_API_URL=.*|NEXT_PUBLIC_API_URL=https://${APP_DOMAIN}/api|" .env
+  # Domaine : argument > variable d'env > IP publique de la machine
+  if [[ -z "$DOMAIN" ]]; then
+    DOMAIN="$(curl -fsSL --max-time 4 https://api.ipify.org 2>/dev/null \
+              || hostname -I | awk '{print $1}')"
+    echo "[info] Aucun domaine fourni — utilisation de $DOMAIN avec un certificat HTTPS interne (self-signed)."
   fi
-  if [[ -n "${LETSENCRYPT_EMAIL:-}" ]]; then
-    sed -i "s|^LETSENCRYPT_EMAIL=.*|LETSENCRYPT_EMAIL=${LETSENCRYPT_EMAIL}|" .env
-  fi
+  EMAIL="${EMAIL:-admin@${DOMAIN}}"
 
-  echo "[info] .env created with auto-generated secrets."
-  echo "[info] You MUST still fill in your social provider credentials (LinkedIn, Meta, TikTok) before users can connect their accounts."
+  sed -i \
+    -e "s|^POSTGRES_PASSWORD=.*|POSTGRES_PASSWORD=${PG}|" \
+    -e "s|^JWT_SECRET=.*|JWT_SECRET=${JW}|" \
+    -e "s|^TOKEN_ENCRYPTION_KEY=.*|TOKEN_ENCRYPTION_KEY=${TK}|" \
+    -e "s|^DATABASE_URL=.*|DATABASE_URL=postgresql://community:${PG}@postgres:5432/community?schema=public|" \
+    -e "s|^APP_DOMAIN=.*|APP_DOMAIN=${DOMAIN}|" \
+    -e "s|^APP_URL=.*|APP_URL=https://${DOMAIN}|" \
+    -e "s|^API_URL=.*|API_URL=https://${DOMAIN}/api|" \
+    -e "s|^NEXT_PUBLIC_API_URL=.*|NEXT_PUBLIC_API_URL=https://${DOMAIN}/api|" \
+    -e "s|^LETSENCRYPT_EMAIL=.*|LETSENCRYPT_EMAIL=${EMAIL}|" \
+    -e "s|community\.meoxa\.app|${DOMAIN}|g" \
+    .env
 else
-  echo "[info] .env already exists — leaving it untouched."
+  echo "[info] .env existant conservé."
 fi
 
-# --- 5. Build and start ---------------------------------------------
-echo "[5/6] Building Docker images (this may take a few minutes)..."
-docker compose build
+# --- 4. Build + démarrage ------------------------------------------
+echo "[4/4] Build et démarrage du stack..."
+docker compose up -d --build
 
-echo "[6/6] Starting the stack..."
-docker compose up -d
-
-# --- Done -----------------------------------------------------------
 DOMAIN="$(grep -E '^APP_DOMAIN=' .env | cut -d= -f2)"
 cat <<EOF
 
 ==============================================================
-✓ Community is starting.
+✓ Community est démarré sur : https://${DOMAIN}
 
-Once Caddy has issued the TLS certificate (a few seconds), open:
+  - Si ${DOMAIN} pointe (DNS A) sur ce serveur, Caddy obtient un
+    certificat Let's Encrypt automatiquement (~30 s).
+  - Sinon, Caddy sert un certificat interne (self-signed) — le
+    navigateur affichera un avertissement à accepter une fois.
 
-  https://${DOMAIN}
+Commandes utiles :
+  docker compose ps                     # statut
+  docker compose logs -f api worker     # logs backend
+  docker compose logs -f caddy          # logs TLS / reverse proxy
+  docker compose down                   # arrêt
 
-Useful commands:
-  docker compose ps                # service status
-  docker compose logs -f api       # backend logs
-  docker compose logs -f worker    # publishing worker logs
-  docker compose logs -f caddy     # reverse proxy / TLS logs
-  docker compose down              # stop the stack
-
-Next step: edit .env and fill in your social provider credentials,
-then run:  docker compose up -d --force-recreate api worker
+Pour activer un provider social, édite .env (LINKEDIN_*, META_*, …)
+puis : docker compose up -d --force-recreate api worker
 ==============================================================
 EOF

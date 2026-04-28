@@ -2,6 +2,11 @@
 	email {$LETSENCRYPT_EMAIL}
 }
 
+# HTTPS toujours actif :
+#   - APP_DOMAIN = domaine public résolu vers ce serveur → Let's Encrypt auto.
+#   - APP_DOMAIN = IP / localhost                       → Caddy bascule seul
+#                                                          sur son CA interne
+#                                                          (avertissement navigateur 1 fois).
 {$APP_DOMAIN} {
 	encode zstd gzip
 
