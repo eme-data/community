@@ -39,6 +39,8 @@ enum SocialProvider {
 
 enum PostStatus {
   DRAFT
+  PENDING_APPROVAL
+  REJECTED
   SCHEDULED
   PUBLISHING
   PUBLISHED
@@ -53,6 +55,10 @@ model Tenant {
   // Onboarding progress for the tenant
   onboardingCompletedAt DateTime?
   onboardingStep        String              @default("welcome") // welcome | verify | connect | first_post | done
+
+  // Approval workflow — when true, EDITOR-created posts go through PENDING_APPROVAL
+  // and require an OWNER/ADMIN to approve before scheduling.
+  requireApproval       Boolean             @default(false)
 
   // Stripe billing
   stripeCustomerId      String?             @unique
@@ -88,6 +94,19 @@ model User {
   memberships        Membership[]
   emailVerifications EmailVerification[]
   passwordResets     PasswordReset[]
+  backupCodes        BackupCode[]
+}
+
+model BackupCode {
+  id         String    @id @default(cuid())
+  user       User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId     String
+  // sha256 of the raw code — codes are shown to the user once and never stored.
+  codeHash   String    @unique
+  consumedAt DateTime?
+  createdAt  DateTime  @default(now())
+
+  @@index([userId])
 }
 
 model EmailVerification {
@@ -190,9 +209,20 @@ model Post {
   tenantId      String
   authorUserId  String
   content       String       @db.Text
+  // Optional X / Twitter thread — array of subsequent tweets after `content`.
+  // Other providers ignore this field.
+  thread        String[]     @default([])
   status        PostStatus   @default(DRAFT)
   scheduledAt   DateTime?
   publishedAt   DateTime?
+
+  // Approval workflow metadata
+  approvedAt        DateTime?
+  approvedByUserId  String?
+  rejectedAt        DateTime?
+  rejectedByUserId  String?
+  rejectionReason   String?
+
   createdAt     DateTime     @default(now())
   updatedAt     DateTime     @updatedAt
 

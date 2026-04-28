@@ -25,8 +25,14 @@ export default function NewPostPage() {
   const [media, setMedia] = useState<Media[]>([]);
   const [uploading, setUploading] = useState(false);
   const [scheduledAt, setScheduledAt] = useState('');
+  const [thread, setThread] = useState<string[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+
+  const hasTwitter = [...selected].some((id) => {
+    const a = accounts.find((acc) => acc.id === id);
+    return a?.provider === 'TWITTER';
+  });
 
   useEffect(() => {
     api<Account[]>('/social/accounts').then(setAccounts);
@@ -75,6 +81,7 @@ export default function NewPostPage() {
           content,
           accountIds: [...selected],
           mediaIds: media.map((m) => m.id),
+          thread: thread.filter((t) => t.trim().length > 0),
           scheduledAt: scheduledAt ? new Date(scheduledAt).toISOString() : undefined,
         }),
       });
@@ -156,6 +163,43 @@ export default function NewPostPage() {
           </label>
         ))}
       </fieldset>
+
+      {hasTwitter && (
+        <div className="space-y-2">
+          <label className="block text-sm font-medium">Thread X (optionnel)</label>
+          <p className="text-xs text-slate-500">
+            Tweets supplémentaires postés en réponse au premier. Ignoré par les autres réseaux.
+          </p>
+          {thread.map((t, i) => (
+            <div key={i} className="flex gap-2 items-start">
+              <textarea
+                rows={2}
+                maxLength={280}
+                value={t}
+                onChange={(e) => {
+                  const next = [...thread];
+                  next[i] = e.target.value;
+                  setThread(next);
+                }}
+                placeholder={`Tweet #${i + 2}`}
+                className="flex-1 px-3 py-2 rounded border border-slate-300 dark:border-slate-700 bg-transparent text-sm"
+              />
+              <button
+                type="button"
+                onClick={() => setThread(thread.filter((_, j) => j !== i))}
+                className="text-red-600 text-sm"
+              >×</button>
+            </div>
+          ))}
+          <button
+            type="button"
+            onClick={() => setThread([...thread, ''])}
+            className="text-sm text-brand hover:underline"
+          >
+            + Ajouter un tweet
+          </button>
+        </div>
+      )}
 
       <div>
         <label className="block text-sm font-medium mb-1">Programmer (optionnel)</label>

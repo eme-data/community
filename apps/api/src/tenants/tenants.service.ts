@@ -25,4 +25,23 @@ export class TenantsService {
       include: { memberships: { where: { userId }, select: { role: true } } },
     });
   }
+
+  update(tenantId: string, data: { name?: string; requireApproval?: boolean }) {
+    return this.prisma.tenant.update({
+      where: { id: tenantId },
+      data: {
+        ...(data.name !== undefined && { name: data.name }),
+        ...(data.requireApproval !== undefined && { requireApproval: data.requireApproval }),
+      },
+    });
+  }
+
+  async deleteWithConfirmation(tenantId: string, confirmation: string) {
+    const tenant = await this.findById(tenantId);
+    if (confirmation !== tenant.slug) {
+      throw new ForbiddenException(`Type the tenant slug "${tenant.slug}" to confirm deletion`);
+    }
+    await this.prisma.tenant.delete({ where: { id: tenantId } });
+    return { ok: true };
+  }
 }

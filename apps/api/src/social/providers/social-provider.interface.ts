@@ -19,6 +19,8 @@ export interface OAuthCallbackResult {
 export interface PublishInput {
   content: string;
   mediaIds: string[]; // local MediaAsset ids — provider may need to upload
+  /** Optional X / Twitter thread — additional tweets posted as replies. */
+  thread?: string[];
 }
 
 export interface PublishResult {

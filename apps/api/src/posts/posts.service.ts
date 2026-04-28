@@ -1,6 +1,7 @@
-import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
+import { Injectable, NotFoundException, BadRequestException, ForbiddenException } from '@nestjs/common';
 import { InjectQueue } from '@nestjs/bullmq';
 import { Queue } from 'bullmq';
+import { Role } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { AuditService } from '../audit/audit.service';
 import { CreatePostDto } from './dto/create-post.dto';
@@ -21,6 +22,14 @@ export class PostsService {
     });
   }
 
+  listPending(tenantId: string) {
+    return this.prisma.post.findMany({
+      where: { tenantId, status: 'PENDING_APPROVAL' },
+      include: { targets: { include: { account: true } }, media: true },
+      orderBy: { createdAt: 'asc' },
+    });
+  }
+
   async findOne(tenantId: string, id: string) {
     const post = await this.prisma.post.findFirst({
       where: { id, tenantId },
@@ -31,7 +40,6 @@ export class PostsService {
   }
 
   async create(tenantId: string, userId: string, dto: CreatePostDto) {
-    // Verify all accounts belong to the tenant
     const accounts = await this.prisma.socialAccount.findMany({
       where: { id: { in: dto.accountIds }, tenantId },
     });
@@ -49,20 +57,38 @@ export class PostsService {
       }
     }
 
+    // If the tenant requires approval and the author is just an EDITOR, the
+    // post lands in PENDING_APPROVAL and is NOT enqueued. OWNER/ADMIN bypass.
+    const tenant = await this.prisma.tenant.findUnique({
+      where: { id: tenantId },
+      select: { requireApproval: true },
+    });
+    const m = await this.prisma.membership.findUnique({
+      where: { userId_tenantId: { userId, tenantId } },
+      select: { role: true },
+    });
+    const role = m?.role;
+    const needsApproval = !!tenant?.requireApproval && role === 'EDITOR';
+
     const scheduledAt = dto.scheduledAt ? new Date(dto.scheduledAt) : null;
-    const status = scheduledAt ? 'SCHEDULED' : 'DRAFT';
+    const status = needsApproval
+      ? 'PENDING_APPROVAL'
+      : scheduledAt
+        ? 'SCHEDULED'
+        : 'DRAFT';
 
     const post = await this.prisma.post.create({
       data: {
         tenantId,
         authorUserId: userId,
         content: dto.content,
+        thread: dto.thread ?? [],
         status,
         scheduledAt,
         targets: {
           create: dto.accountIds.map((accountId) => ({
             accountId,
-            status: scheduledAt ? 'SCHEDULED' : 'DRAFT',
+            status,
           })),
         },
         media: mediaIds.length
@@ -72,14 +98,19 @@ export class PostsService {
       include: { targets: true, media: true },
     });
 
-    if (scheduledAt) {
+    if (status === 'SCHEDULED' && scheduledAt) {
       await this.enqueue(post.id, scheduledAt);
     }
 
     await this.audit.log({
       tenantId,
       userId,
-      action: scheduledAt ? 'post.scheduled' : 'post.draft.created',
+      action:
+        status === 'PENDING_APPROVAL'
+          ? 'post.submitted_for_approval'
+          : status === 'SCHEDULED'
+            ? 'post.scheduled'
+            : 'post.draft.created',
       target: post.id,
       payload: { accountIds: dto.accountIds, scheduledAt: scheduledAt?.toISOString() },
     });
@@ -87,9 +118,73 @@ export class PostsService {
     return post;
   }
 
+  async approve(tenantId: string, reviewerUserId: string, postId: string) {
+    const post = await this.findOne(tenantId, postId);
+    if (post.status !== 'PENDING_APPROVAL') {
+      throw new BadRequestException('Post is not pending approval');
+    }
+    if (post.authorUserId === reviewerUserId) {
+      throw new ForbiddenException('You cannot approve your own post');
+    }
+    const newStatus = post.scheduledAt ? 'SCHEDULED' : 'DRAFT';
+    await this.prisma.post.update({
+      where: { id: postId },
+      data: {
+        status: newStatus,
+        approvedAt: new Date(),
+        approvedByUserId: reviewerUserId,
+      },
+    });
+    await this.prisma.postTarget.updateMany({
+      where: { postId },
+      data: { status: newStatus },
+    });
+    if (post.scheduledAt) await this.enqueue(postId, post.scheduledAt);
+
+    await this.audit.log({
+      tenantId,
+      userId: reviewerUserId,
+      action: 'post.approved',
+      target: postId,
+      payload: { authorUserId: post.authorUserId, scheduledAt: post.scheduledAt?.toISOString() },
+    });
+    return { ok: true };
+  }
+
+  async reject(tenantId: string, reviewerUserId: string, postId: string, reason?: string) {
+    const post = await this.findOne(tenantId, postId);
+    if (post.status !== 'PENDING_APPROVAL') {
+      throw new BadRequestException('Post is not pending approval');
+    }
+    await this.prisma.post.update({
+      where: { id: postId },
+      data: {
+        status: 'REJECTED',
+        rejectedAt: new Date(),
+        rejectedByUserId: reviewerUserId,
+        rejectionReason: reason?.slice(0, 1000) ?? null,
+      },
+    });
+    await this.prisma.postTarget.updateMany({
+      where: { postId },
+      data: { status: 'REJECTED' },
+    });
+    await this.audit.log({
+      tenantId,
+      userId: reviewerUserId,
+      action: 'post.rejected',
+      target: postId,
+      payload: { authorUserId: post.authorUserId, reason },
+    });
+    return { ok: true };
+  }
+
   async publishNow(tenantId: string, postId: string) {
     const post = await this.findOne(tenantId, postId);
     if (post.status === 'PUBLISHED') throw new BadRequestException('Post already published');
+    if (post.status === 'PENDING_APPROVAL') {
+      throw new BadRequestException('Post is awaiting approval');
+    }
 
     await this.prisma.post.update({
       where: { id: postId },

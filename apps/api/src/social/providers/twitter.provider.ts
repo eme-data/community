@@ -87,17 +87,25 @@ export class TwitterProvider implements SocialProvider {
 
   async publish(account: SocialAccount, input: PublishInput): Promise<PublishResult> {
     const token = decrypt(account.accessToken);
-    // X has a 280-char limit; truncate defensively rather than fail.
-    const text = input.content.slice(0, 280);
-    const res = await axios.post(
-      TWEET_URL,
-      { text },
-      { headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' } },
-    );
-    const id = res.data?.data?.id as string;
+
+    // Helper that posts a single tweet, optionally as a reply.
+    const tweet = async (text: string, inReplyTo?: string): Promise<string> => {
+      const body: any = { text: text.slice(0, 280) };
+      if (inReplyTo) body.reply = { in_reply_to_tweet_id: inReplyTo };
+      const res = await axios.post(TWEET_URL, body, {
+        headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+      });
+      return res.data?.data?.id as string;
+    };
+
+    const firstId = await tweet(input.content);
+    let lastId = firstId;
+    for (const t of input.thread ?? []) {
+      lastId = await tweet(t, lastId);
+    }
     return {
-      providerPostId: id,
-      providerUrl: id ? `https://twitter.com/i/status/${id}` : undefined,
+      providerPostId: firstId,
+      providerUrl: firstId ? `https://twitter.com/i/status/${firstId}` : undefined,
     };
   }
 

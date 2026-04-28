@@ -44,6 +44,7 @@ export class PostPublishProcessor extends WorkerHost {
         const result = await this.social.publish(target.account, {
           content: post.content,
           mediaIds: post.media.map((m) => m.id),
+          thread: post.thread,
         });
 
         await this.prisma.postTarget.update({

@@ -18,4 +18,10 @@ export class CreatePostDto {
   @IsArray()
   @IsString({ each: true })
   mediaIds?: string[];
+
+  // X / Twitter thread — additional tweets posted as replies after `content`.
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  thread?: string[];
 }

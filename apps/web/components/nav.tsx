@@ -9,10 +9,12 @@ import { TenantSwitcher } from './tenant-switcher';
 const links = [
   { href: '/dashboard', label: 'Tableau de bord' },
   { href: '/posts', label: 'Publications' },
+  { href: '/posts/pending', label: 'À approuver' },
   { href: '/posts/calendar', label: 'Calendrier' },
   { href: '/posts/new', label: 'Nouveau post' },
   { href: '/accounts', label: 'Comptes sociaux' },
   { href: '/settings/team', label: 'Équipe' },
+  { href: '/settings/general', label: 'Général' },
   { href: '/settings/billing', label: 'Facturation' },
   { href: '/settings/security', label: 'Sécurité' },
   { href: '/settings/audit', label: 'Audit' },

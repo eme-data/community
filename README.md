@@ -225,14 +225,30 @@ Le test golden path couvre : landing → register → onboarding (auto-vérifica
 - build du web (Next.js)
 - e2e Playwright contre Postgres + Redis dans des `services:` GitHub
 
+## Workflow de publication
+
+| Étape | Acteur | Statut du Post |
+|-------|--------|----------------|
+| Création par éditeur (avec `requireApproval=true`) | EDITOR | `PENDING_APPROVAL` |
+| Approbation | OWNER / ADMIN (≠ auteur) | `SCHEDULED` ou `DRAFT` |
+| Rejet | OWNER / ADMIN | `REJECTED` (motif optionnel) |
+| Création directe (OWNER/ADMIN, ou approval désactivé) | tous | `DRAFT` ou `SCHEDULED` |
+| File d'attente atteint l'heure programmée | worker BullMQ | `PUBLISHING` puis `PUBLISHED`/`FAILED` |
+| Publication immédiate | EDITOR+ | `SCHEDULED` (delay=0) |
+
+La pré-validation est **désactivée par défaut** — un OWNER peut l'activer dans `/settings/general`. Elle ne s'applique qu'aux EDITOR : OWNER et ADMIN gardent la possibilité de publier directement.
+
+Chaque échec d'une cible est isolé : si LinkedIn passe mais Instagram échoue, le post est marqué `FAILED` au global mais avec le détail par target ; le retry exponentiel (5 tentatives, base 60s) est appliqué.
+
 ## Roadmap restante
 
 - [ ] Webhooks pour récupérer les statistiques de publication
-- [ ] Threads X (multi-tweet), hashtags suggérés, IA pour reformulation
-- [ ] Codes de récupération 2FA (backup codes)
+- [ ] Hashtags suggérés / IA de reformulation
 - [ ] Dashboard d'observabilité (Grafana/Loki)
-- [ ] Soft-delete pour tenants/posts (GDPR)
-- [ ] Export CSV du journal d'audit
+- [ ] White-label (couleurs/logo par tenant)
+- [ ] API publique versionnée + clés API par tenant
+- [ ] Bulk import CSV de posts
+- [ ] A/B testing de variantes
 
 ---
 

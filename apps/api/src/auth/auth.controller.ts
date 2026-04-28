@@ -108,4 +108,10 @@ export class AuthController {
   disableTwoFactor(@CurrentUser() user: { userId: string }, @Body() dto: TwoFactorCodeDto) {
     return this.twofa.disable(user.userId, dto.code);
   }
+
+  @Post('2fa/backup-codes/regenerate')
+  @UseGuards(JwtAuthGuard)
+  async regenerateBackupCodes(@CurrentUser() user: { userId: string }) {
+    return { backupCodes: await this.twofa.regenerateBackupCodes(user.userId) };
+  }
 }

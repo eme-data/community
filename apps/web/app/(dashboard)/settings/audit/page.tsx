@@ -32,15 +32,39 @@ export default function AuditPage() {
     api<AuditEntry[]>('/audit').then(setEntries).finally(() => setLoading(false));
   }, []);
 
+  async function exportCsv() {
+    const base = process.env.NEXT_PUBLIC_API_URL || '/api';
+    const token = typeof window !== 'undefined' ? localStorage.getItem('community.token') : null;
+    const res = await fetch(`${base}/audit/export.csv`, {
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+    });
+    if (!res.ok) { alert('Export failed'); return; }
+    const blob = await res.blob();
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `audit-${new Date().toISOString().slice(0, 10)}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+  }
+
   if (loading) return <p>Chargement...</p>;
 
   return (
     <div className="space-y-4 max-w-4xl">
-      <div>
-        <h1 className="text-2xl font-bold">Journal d'audit</h1>
-        <p className="text-sm text-slate-500">
-          Les 200 derniers événements de cet espace (publications, comptes connectés, invitations…).
-        </p>
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <h1 className="text-2xl font-bold">Journal d'audit</h1>
+          <p className="text-sm text-slate-500">
+            Les 200 derniers événements de cet espace (publications, comptes connectés, invitations…).
+          </p>
+        </div>
+        <button
+          onClick={exportCsv}
+          className="px-3 py-2 rounded border border-slate-300 dark:border-slate-700 hover:border-brand text-sm whitespace-nowrap"
+        >
+          Exporter CSV
+        </button>
       </div>
 
       {entries.length === 0 ? (
