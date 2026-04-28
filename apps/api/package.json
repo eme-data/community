@@ -12,6 +12,9 @@
     "prisma:migrate:dev": "prisma migrate dev",
     "lint": "eslint \"src/**/*.ts\""
   },
+  "prisma": {
+    "seed": "node prisma/seed.mjs"
+  },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.40.0",
     "@nestjs/bullmq": "^10.2.0",
