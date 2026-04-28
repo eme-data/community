@@ -43,7 +43,7 @@ const tiers: Tier[] = [
       'Support email',
     ],
     cta: 'Choisir Starter',
-    href: '/register?plan=starter',
+    href: '/settings/billing',
   },
   {
     name: 'Pro',
@@ -57,7 +57,7 @@ const tiers: Tier[] = [
       'Support prioritaire',
     ],
     cta: 'Choisir Pro',
-    href: '/register?plan=pro',
+    href: '/settings/billing',
   },
 ];
 

@@ -1,5 +1,6 @@
 import { NestFactory } from '@nestjs/core';
 import { ValidationPipe, Logger } from '@nestjs/common';
+import { json, raw } from 'express';
 import helmet from 'helmet';
 import { AppModule } from './app.module';
 
@@ -9,6 +10,9 @@ async function bootstrap() {
       origin: process.env.APP_URL ? [process.env.APP_URL] : true,
       credentials: true,
     },
+    // Disable the default body parser so we can selectively keep the raw body
+    // on the Stripe webhook route, and use JSON everywhere else.
+    bodyParser: false,
   });
 
   // Trust the reverse proxy (Caddy) so req.ip reflects the real client IP
@@ -21,6 +25,14 @@ async function bootstrap() {
       crossOriginEmbedderPolicy: false,
     }),
   );
+
+  // Stripe webhook needs the raw body for signature verification.
+  app.use('/api/billing/webhook', raw({ type: 'application/json' }), (req: any, _res, next) => {
+    req.rawBody = req.body;
+    next();
+  });
+  // Everything else: JSON.
+  app.use(json({ limit: '5mb' }));
 
   app.setGlobalPrefix('api', { exclude: ['health'] });
   app.useGlobalPipes(

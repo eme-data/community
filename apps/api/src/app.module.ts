@@ -16,6 +16,7 @@ import { SchedulerModule } from './scheduler/scheduler.module';
 import { OnboardingModule } from './onboarding/onboarding.module';
 import { MediaModule } from './media/media.module';
 import { InvitationsModule } from './invitations/invitations.module';
+import { BillingModule } from './billing/billing.module';
 import { HealthController } from './health.controller';
 
 @Module({
@@ -44,6 +45,7 @@ import { HealthController } from './health.controller';
     OnboardingModule,
     MediaModule,
     InvitationsModule,
+    BillingModule,
   ],
   controllers: [HealthController],
   providers: [{ provide: APP_GUARD, useClass: ThrottlerGuard }],

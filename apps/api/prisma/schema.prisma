@@ -20,6 +20,15 @@ enum Plan {
   PRO
 }
 
+enum SubscriptionStatus {
+  NONE          // free plan, no Stripe subscription
+  TRIALING
+  ACTIVE
+  PAST_DUE
+  CANCELED
+  INCOMPLETE
+}
+
 enum SocialProvider {
   LINKEDIN
   FACEBOOK
@@ -37,15 +46,24 @@ enum PostStatus {
 }
 
 model Tenant {
-  id                    String          @id @default(cuid())
-  slug                  String          @unique
+  id                    String              @id @default(cuid())
+  slug                  String              @unique
   name                  String
-  plan                  Plan            @default(FREE)
+  plan                  Plan                @default(FREE)
   // Onboarding progress for the tenant
   onboardingCompletedAt DateTime?
-  onboardingStep        String          @default("welcome") // welcome | verify | connect | first_post | done
-  createdAt             DateTime        @default(now())
-  updatedAt             DateTime        @updatedAt
+  onboardingStep        String              @default("welcome") // welcome | verify | connect | first_post | done
+
+  // Stripe billing
+  stripeCustomerId      String?             @unique
+  stripeSubscriptionId  String?             @unique
+  stripePriceId         String?
+  subscriptionStatus    SubscriptionStatus  @default(NONE)
+  currentPeriodEnd      DateTime?
+  cancelAtPeriodEnd     Boolean             @default(false)
+
+  createdAt             DateTime            @default(now())
+  updatedAt             DateTime            @updatedAt
 
   memberships           Membership[]
   accounts              SocialAccount[]
