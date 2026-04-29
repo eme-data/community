@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 import { api, ApiError } from '@/lib/api';
 import { Stepper } from '@/components/onboarding/stepper';
 
@@ -16,17 +17,23 @@ const PROVIDERS = [
   { key: 'facebook', label: 'Facebook', desc: 'Publication sur vos pages.' },
   { key: 'instagram', label: 'Instagram', desc: 'Compte business lié à une page Facebook requis.' },
   { key: 'tiktok', label: 'TikTok', desc: 'Vidéos uniquement (pipeline média à activer).' },
+  { key: 'youtube', label: 'YouTube', desc: 'Shorts ou vidéos via YouTube Data API.' },
 ];
 
 interface Account { id: string; provider: string; displayName?: string }
-interface ProviderStatus { provider: string; configured: boolean; missing: string[] }
+interface ProviderStatus { provider: string; configured: boolean; missing: string[]; usingTenantOverride?: boolean }
 
 export default function ConnectPage() {
   const router = useRouter();
   const [accounts, setAccounts] = useState<Account[]>([]);
   const [status, setStatus] = useState<Record<string, ProviderStatus>>({});
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<{ provider: string; missing: string[]; message: string } | null>(null);
+  const [error, setError] = useState<{
+    provider: string;
+    kind: 'not_configured' | 'network';
+    missing: string[];
+    message: string;
+  } | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
 
   function refresh() {
@@ -54,12 +61,14 @@ export default function ConnectPage() {
       if (e instanceof ApiError && e.body?.error === 'provider_not_configured') {
         setError({
           provider,
+          kind: 'not_configured',
           missing: e.body.missing ?? [],
           message: e.body.message ?? `${provider} n'est pas encore configuré.`,
         });
       } else {
         setError({
           provider,
+          kind: 'network',
           missing: [],
           message: e instanceof Error ? e.message : `Erreur lors de la connexion à ${provider}.`,
         });
@@ -88,19 +97,52 @@ export default function ConnectPage() {
           Sélectionnez un réseau pour démarrer la connexion. Vous pourrez en ajouter d'autres plus tard depuis la console.
         </p>
 
-        {error && (
-          <div className="rounded-lg border border-amber-200 bg-amber-50 dark:bg-amber-950/30 dark:border-amber-900 px-4 py-3 text-sm mb-6">
-            <p className="font-medium text-amber-800 dark:text-amber-200">
-              {error.provider} n'est pas encore configuré sur cette instance.
+        {!loading && Object.keys(status).length > 0 && Object.values(status).every((s) => !s.configured) && (
+          <div className="rounded-lg border border-blue-200 bg-blue-50 dark:bg-blue-950/30 dark:border-blue-900 px-4 py-3 text-sm mb-6 space-y-2">
+            <p className="font-medium text-blue-800 dark:text-blue-200">
+              Aucun réseau n&apos;est encore activé pour votre espace
             </p>
-            <p className="text-amber-700 dark:text-amber-300 mt-1">
+            <p className="text-blue-700 dark:text-blue-300">
+              Vous pouvez fournir vos propres credentials OAuth (LinkedIn, Meta, TikTok, X, YouTube)
+              pour rester totalement autonome — pas besoin d&apos;attendre l&apos;administrateur de
+              la plateforme.
+            </p>
+            <p>
+              <Link
+                href="/settings/oauth-providers"
+                className="inline-block px-3 py-1.5 rounded-md bg-blue-600 text-white hover:bg-blue-700 font-medium"
+              >
+                Configurer mes apps OAuth →
+              </Link>
+            </p>
+          </div>
+        )}
+
+        {error && error.kind === 'not_configured' && (
+          <div className="rounded-lg border border-amber-200 bg-amber-50 dark:bg-amber-950/30 dark:border-amber-900 px-4 py-3 text-sm mb-6 space-y-2">
+            <p className="font-medium text-amber-800 dark:text-amber-200">
+              {error.provider} n&apos;est pas encore activé pour votre espace
+            </p>
+            <p className="text-amber-700 dark:text-amber-300">
               {error.missing.length > 0
                 ? `Variables manquantes : ${error.missing.join(', ')}.`
                 : error.message}
             </p>
-            <p className="text-xs text-amber-700 dark:text-amber-300 mt-2">
-              L'administrateur doit ajouter ces variables au .env puis redémarrer le service. En attendant, vous pouvez sauter cette étape.
+            <p className="text-amber-700 dark:text-amber-300">
+              Pour rester autonome, configurez votre propre app OAuth dans{' '}
+              <Link href="/settings/oauth-providers" className="underline font-medium">
+                Paramètres → Mes apps OAuth
+              </Link>
+              . Sinon, vous pouvez sauter cette étape et y revenir plus tard.
             </p>
+          </div>
+        )}
+        {error && error.kind === 'network' && (
+          <div className="rounded-lg border border-red-200 bg-red-50 dark:bg-red-950/30 dark:border-red-900 px-4 py-3 text-sm mb-6">
+            <p className="font-medium text-red-800 dark:text-red-200">
+              Connexion à {error.provider} impossible
+            </p>
+            <p className="text-red-700 dark:text-red-300 mt-1">{error.message}</p>
           </div>
         )}
 

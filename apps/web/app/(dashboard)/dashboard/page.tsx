@@ -13,6 +13,14 @@ interface Post {
   publishedAt?: string;
   createdAt?: string;
 }
+interface OnboardingStatus {
+  progress: {
+    emailVerified: boolean;
+    accountConnected: boolean;
+    firstPostCreated: boolean;
+    completed: boolean;
+  };
+}
 
 const STATUS_STYLES: Record<string, { label: string; cls: string }> = {
   DRAFT: { label: 'Brouillon', cls: 'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300' },
@@ -25,11 +33,16 @@ const STATUS_STYLES: Record<string, { label: string; cls: string }> = {
 export default function DashboardPage() {
   const [tenant, setTenant] = useState<Tenant | null>(null);
   const [posts, setPosts] = useState<Post[]>([]);
+  const [onboarding, setOnboarding] = useState<OnboardingStatus | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    Promise.all([api<Tenant>('/tenants/current'), api<Post[]>('/posts')])
-      .then(([t, p]) => { setTenant(t); setPosts(p); })
+    Promise.all([
+      api<Tenant>('/tenants/current'),
+      api<Post[]>('/posts'),
+      api<OnboardingStatus>('/onboarding/status').catch(() => null),
+    ])
+      .then(([t, p, ob]) => { setTenant(t); setPosts(p); setOnboarding(ob); })
       .finally(() => setLoading(false));
   }, []);
 
@@ -70,6 +83,10 @@ export default function DashboardPage() {
           + Nouveau post
         </Link>
       </header>
+
+      {onboarding && !onboarding.progress.completed && (
+        <OnboardingChecklist progress={onboarding.progress} />
+      )}
 
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         <Stat label="Brouillons" value={drafts} tone="slate" href="/posts" />
@@ -142,6 +159,75 @@ function Stat({ label, value, tone, href }: { label: string; value: number; tone
       <p className={`text-xs font-medium uppercase tracking-wider ${tones[tone]}`}>{label}</p>
       <p className="text-3xl font-bold mt-1">{value}</p>
     </Link>
+  );
+}
+
+function OnboardingChecklist({
+  progress,
+}: {
+  progress: OnboardingStatus['progress'];
+}) {
+  const items = [
+    {
+      done: progress.emailVerified,
+      label: 'Confirmer votre adresse email',
+      href: '/onboarding/verify',
+    },
+    {
+      done: progress.accountConnected,
+      label: 'Connecter un compte social',
+      href: '/accounts',
+    },
+    {
+      done: progress.firstPostCreated,
+      label: 'Créer votre premier post',
+      href: '/posts/new',
+    },
+  ];
+  const remaining = items.filter((i) => !i.done).length;
+  if (remaining === 0) return null;
+  const totalDone = items.length - remaining;
+
+  return (
+    <section className="rounded-xl border border-blue-200 dark:border-blue-900 bg-blue-50 dark:bg-blue-950/30 p-5">
+      <div className="flex items-start justify-between gap-4 mb-3">
+        <div>
+          <h2 className="font-semibold text-blue-900 dark:text-blue-100">
+            Finalisez la configuration de votre espace
+          </h2>
+          <p className="text-sm text-blue-800/80 dark:text-blue-200/80 mt-0.5">
+            {totalDone} sur {items.length} étape{items.length > 1 ? 's' : ''} validée
+            {totalDone > 1 ? 's' : ''}.
+          </p>
+        </div>
+      </div>
+      <ul className="space-y-2">
+        {items.map((it) => (
+          <li key={it.href} className="flex items-center justify-between gap-3 text-sm">
+            <span className={`flex items-center gap-2 ${it.done ? 'text-blue-800/60 line-through' : 'text-blue-900 dark:text-blue-100'}`}>
+              <span
+                className={`inline-flex items-center justify-center w-5 h-5 rounded-full text-xs font-bold ${
+                  it.done
+                    ? 'bg-emerald-500 text-white'
+                    : 'bg-white dark:bg-slate-900 border border-blue-300 dark:border-blue-700 text-blue-600'
+                }`}
+              >
+                {it.done ? '✓' : ''}
+              </span>
+              {it.label}
+            </span>
+            {!it.done && (
+              <Link
+                href={it.href}
+                className="text-sm font-medium text-blue-700 dark:text-blue-300 hover:underline"
+              >
+                Continuer →
+              </Link>
+            )}
+          </li>
+        ))}
+      </ul>
+    </section>
   );
 }
 

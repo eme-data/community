@@ -4,6 +4,16 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { api, setToken } from '@/lib/api';
 
+function slugify(s: string): string {
+  return s
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[̀-ͯ]/g, '') // strip accents
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+    .slice(0, 40);
+}
+
 export default function RegisterPage() {
   const router = useRouter();
   const [form, setForm] = useState({
@@ -13,11 +23,17 @@ export default function RegisterPage() {
     tenantName: '',
     tenantSlug: '',
   });
+  const [slugTouched, setSlugTouched] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
   function update<K extends keyof typeof form>(key: K, value: string) {
-    setForm((f) => ({ ...f, [key]: value }));
+    setForm((f) => {
+      if (key === 'tenantName' && !slugTouched) {
+        return { ...f, tenantName: value, tenantSlug: slugify(value) };
+      }
+      return { ...f, [key]: value };
+    });
   }
 
   async function onSubmit(e: React.FormEvent) {
@@ -55,14 +71,24 @@ export default function RegisterPage() {
             onChange={(e) => update('tenantName', e.target.value)}
             className="w-full px-3 py-2 rounded border border-slate-300 dark:border-slate-700 bg-transparent"
           />
-          <input
-            required
-            pattern="[a-z0-9-]+"
-            placeholder="slug-url-unique"
-            value={form.tenantSlug}
-            onChange={(e) => update('tenantSlug', e.target.value)}
-            className="w-full px-3 py-2 rounded border border-slate-300 dark:border-slate-700 bg-transparent"
-          />
+          <div>
+            <input
+              required
+              pattern="[a-z0-9-]+"
+              placeholder="slug-url-unique"
+              value={form.tenantSlug}
+              onChange={(e) => {
+                setSlugTouched(true);
+                update('tenantSlug', slugify(e.target.value));
+              }}
+              className="w-full px-3 py-2 rounded border border-slate-300 dark:border-slate-700 bg-transparent"
+            />
+            <p className="text-xs text-slate-500 mt-1">
+              {form.tenantSlug
+                ? <>URL de votre espace : <code className="font-mono">/{form.tenantSlug}</code></>
+                : "Sera généré automatiquement à partir du nom de l'organisation."}
+            </p>
+          </div>
         </div>
 
         <div className="space-y-2">

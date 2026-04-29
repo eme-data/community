@@ -25,6 +25,12 @@ export class AuthService {
     const slugTaken = await this.prisma.tenant.findUnique({ where: { slug: input.tenantSlug } });
     if (slugTaken) throw new BadRequestException('Tenant slug already taken');
 
+    // Bootstrap: the very first user on a fresh instance becomes super-admin
+    // so the SaaS operator can finish setup (plateforme-level OAuth, etc.)
+    // without a manual DB tweak. Subsequent users are regular tenant owners.
+    const userCount = await this.prisma.user.count();
+    const isFirstUser = userCount === 0;
+
     const passwordHash = await bcrypt.hash(input.password, 12);
 
     const user = await this.prisma.user.create({
@@ -32,6 +38,7 @@ export class AuthService {
         email: input.email,
         passwordHash,
         name: input.name,
+        isSuperAdmin: isFirstUser,
         memberships: {
           create: {
             role: 'OWNER',
@@ -43,6 +50,15 @@ export class AuthService {
       },
       include: { memberships: { include: { tenant: true } } },
     });
+
+    // Welcome email — fire-and-forget so registration never blocks on SMTP.
+    this.mail
+      .send(
+        user.email,
+        'Bienvenue sur Community',
+        renderWelcomeHtml(user.name, input.tenantName, isFirstUser),
+      )
+      .catch(() => undefined);
 
     return this.issueToken(user.id, user.memberships[0].tenantId);
   }
@@ -158,4 +174,29 @@ export class AuthService {
     const token = this.jwt.sign({ sub: userId, tenantId });
     return { accessToken: token, tenantId, userId };
   }
+}
+
+function renderWelcomeHtml(name: string | null | undefined, orgName: string, isFirstUser: boolean): string {
+  const greeting = name ? `Bonjour ${escapeHtml(name)},` : 'Bonjour,';
+  const appUrl = process.env.APP_URL || '';
+  const adminBlock = isFirstUser
+    ? `<p>Vous êtes le premier utilisateur de cette instance et avez donc reçu le rôle <strong>super-admin</strong>.
+       Pensez à configurer les providers OAuth depuis <em>Paramètres → Providers OAuth</em> pour que tous vos
+       espaces puissent connecter leurs comptes sociaux sans avoir à fournir leurs propres credentials.</p>`
+    : '';
+  return `
+    <p>${greeting}</p>
+    <p>Bienvenue sur Community ! Votre espace <strong>${escapeHtml(orgName)}</strong> est prêt.</p>
+    <p>Prochaines étapes :</p>
+    <ol>
+      <li>Confirmez votre adresse email (vous recevrez un lien dédié dans un instant).</li>
+      <li>Connectez votre premier réseau social.</li>
+      <li>Créez ou planifiez votre première publication.</li>
+    </ol>
+    ${adminBlock}
+    <p><a href="${appUrl}/onboarding">Reprendre la configuration →</a></p>`;
+}
+
+function escapeHtml(s: string): string {
+  return s.replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]!);
 }
