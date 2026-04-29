@@ -8,6 +8,7 @@ import { FacebookProvider, InstagramProvider } from './providers/meta.provider';
 import { TikTokProvider } from './providers/tiktok.provider';
 import { TwitterProvider } from './providers/twitter.provider';
 import { BlueskyProvider } from './providers/bluesky.provider';
+import { YouTubeProvider } from './providers/youtube.provider';
 import {
   SocialProvider,
   PublishInput,
@@ -31,6 +32,7 @@ export class SocialService {
     tiktok: TikTokProvider,
     twitter: TwitterProvider,
     private readonly bluesky: BlueskyProvider,
+    youtube: YouTubeProvider,
   ) {
     this.providers = {
       LINKEDIN: linkedin,
@@ -39,6 +41,7 @@ export class SocialService {
       TIKTOK: tiktok,
       TWITTER: twitter,
       BLUESKY: bluesky,
+      YOUTUBE: youtube,
     };
   }
 

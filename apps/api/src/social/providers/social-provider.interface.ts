@@ -40,7 +40,7 @@ export interface PostMetricsSnapshot {
 
 export interface SocialProvider {
   /** Stable identifier matching the SocialProvider enum */
-  readonly key: 'LINKEDIN' | 'FACEBOOK' | 'INSTAGRAM' | 'TIKTOK' | 'TWITTER' | 'BLUESKY';
+  readonly key: 'LINKEDIN' | 'FACEBOOK' | 'INSTAGRAM' | 'TIKTOK' | 'TWITTER' | 'BLUESKY' | 'YOUTUBE';
 
   /** Build the OAuth authorize URL for the user to begin the flow */
   buildAuthorizeUrl(input: { tenantId: string; userId: string }): OAuthAuthorizeUrl;

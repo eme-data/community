@@ -15,6 +15,7 @@ const PROVIDER_PATH: Record<string, SocialProvider> = {
   tiktok: 'TIKTOK',
   twitter: 'TWITTER',
   bluesky: 'BLUESKY',
+  youtube: 'YOUTUBE',
 };
 
 const PROVIDER_ENV_VARS: Record<string, string[]> = {
@@ -23,6 +24,7 @@ const PROVIDER_ENV_VARS: Record<string, string[]> = {
   INSTAGRAM: ['META_APP_ID', 'META_APP_SECRET', 'META_REDIRECT_URI'],
   TIKTOK: ['TIKTOK_CLIENT_KEY', 'TIKTOK_CLIENT_SECRET', 'TIKTOK_REDIRECT_URI'],
   TWITTER: ['TWITTER_CLIENT_ID', 'TWITTER_CLIENT_SECRET', 'TWITTER_REDIRECT_URI'],
+  YOUTUBE: ['YOUTUBE_CLIENT_ID', 'YOUTUBE_CLIENT_SECRET', 'YOUTUBE_REDIRECT_URI'],
 };
 
 function missingEnvVars(provider: SocialProvider, env: ProviderEnvService): string[] {

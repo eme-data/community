@@ -37,6 +37,7 @@ enum SocialProvider {
   TIKTOK
   TWITTER
   BLUESKY
+  YOUTUBE
 }
 
 enum PostStatus {

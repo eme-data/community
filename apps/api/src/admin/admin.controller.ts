@@ -6,7 +6,7 @@ import { CurrentUser, AuthUser } from '../auth/current-user.decorator';
 import { SuperAdminGuard } from './super-admin.guard';
 import { AdminService } from './admin.service';
 
-const PROVIDERS: SocialProvider[] = ['LINKEDIN', 'FACEBOOK', 'INSTAGRAM', 'TIKTOK', 'TWITTER'];
+const PROVIDERS: SocialProvider[] = ['LINKEDIN', 'FACEBOOK', 'INSTAGRAM', 'TIKTOK', 'TWITTER', 'YOUTUBE'];
 
 class UpsertProviderConfigDto {
   @IsString()

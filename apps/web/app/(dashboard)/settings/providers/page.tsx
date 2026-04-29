@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { api, ApiError } from '@/lib/api';
 
-type Provider = 'LINKEDIN' | 'FACEBOOK' | 'INSTAGRAM' | 'TIKTOK' | 'TWITTER';
+type Provider = 'LINKEDIN' | 'FACEBOOK' | 'INSTAGRAM' | 'TIKTOK' | 'TWITTER' | 'YOUTUBE';
 
 interface ProviderConfig {
   provider: Provider;
@@ -145,6 +145,31 @@ const PROVIDERS: ProviderDef[] = [
       'Onglet « Keys and tokens » → générez les « OAuth 2.0 Client ID and Client Secret ».',
       'Collez-les ci-dessous. Sauvegardez.',
       "Pour passer en production (réellement poster) : abonnez le projet au tier Basic chez X. Le tier Free permet l'auth mais pas la publication.",
+    ],
+  },
+  {
+    key: 'YOUTUBE',
+    label: 'YouTube (Shorts)',
+    description: "Pour publier des vidéos / Shorts via la YouTube Data API v3. Une vidéo verticale ≤ 60s avec #Shorts dans le titre est automatiquement reconnue comme Short.",
+    portalUrl: 'https://console.cloud.google.com/apis/credentials',
+    fields: [
+      { name: 'YOUTUBE_CLIENT_ID', label: 'Client ID' },
+      { name: 'YOUTUBE_CLIENT_SECRET', label: 'Client Secret', secret: true },
+      {
+        name: 'YOUTUBE_REDIRECT_URI',
+        label: 'Redirect URI',
+        defaultValue: (appUrl) => `${appUrl}/api/social/youtube/callback`,
+      },
+    ],
+    scopes: 'youtube.upload · youtube.readonly',
+    steps: [
+      'Créez (ou réutilisez) un projet sur https://console.cloud.google.com/.',
+      "API & Services → Library → activez « YouTube Data API v3 ».",
+      "API & Services → OAuth consent screen → choisissez External (ou Internal si Google Workspace), renseignez le nom de l'app, l'email de support et le domaine (community.meoxa.app), puis ajoutez les scopes youtube.upload et youtube.readonly.",
+      "Tant que l'app est en mode « Testing », ajoutez-y vos comptes Google de test. Pour passer en production, soumettez l'app à validation Google.",
+      'API & Services → Credentials → Create credentials → OAuth client ID → type « Web application ».',
+      "Ajoutez l'URL de redirection ci-dessous (Authorized redirect URIs).",
+      'Téléchargez les credentials, copiez Client ID + Client Secret ci-dessous.',
     ],
   },
 ];

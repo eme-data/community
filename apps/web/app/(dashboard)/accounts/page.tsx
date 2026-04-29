@@ -28,6 +28,7 @@ const PROVIDERS = [
   { key: 'instagram', label: 'Instagram' },
   { key: 'tiktok', label: 'TikTok' },
   { key: 'twitter', label: 'X (Twitter)' },
+  { key: 'youtube', label: 'YouTube' },
   { key: 'bluesky', label: 'Bluesky', manual: true },
 ];
 
