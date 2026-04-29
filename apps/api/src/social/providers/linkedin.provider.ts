@@ -31,23 +31,23 @@ export class LinkedInProvider implements SocialProvider {
     const state = `${input.tenantId}:${input.userId}:${randomBytes(8).toString('hex')}`;
     const params = new URLSearchParams({
       response_type: 'code',
-      client_id: this.requireEnv('LINKEDIN_CLIENT_ID'),
-      redirect_uri: this.requireEnv('LINKEDIN_REDIRECT_URI'),
+      client_id: this.requireEnv('LINKEDIN_CLIENT_ID', input.tenantId),
+      redirect_uri: this.requireEnv('LINKEDIN_REDIRECT_URI', input.tenantId),
       state,
       scope: 'openid profile email w_member_social',
     });
     return { url: `${AUTHORIZE_URL}?${params.toString()}`, state };
   }
 
-  async handleCallback(input: { code: string; state: string }): Promise<OAuthCallbackResult> {
+  async handleCallback(input: { code: string; state: string; tenantId: string }): Promise<OAuthCallbackResult> {
     const tokenRes = await axios.post(
       TOKEN_URL,
       new URLSearchParams({
         grant_type: 'authorization_code',
         code: input.code,
-        redirect_uri: this.requireEnv('LINKEDIN_REDIRECT_URI'),
-        client_id: this.requireEnv('LINKEDIN_CLIENT_ID'),
-        client_secret: this.requireEnv('LINKEDIN_CLIENT_SECRET'),
+        redirect_uri: this.requireEnv('LINKEDIN_REDIRECT_URI', input.tenantId),
+        client_id: this.requireEnv('LINKEDIN_CLIENT_ID', input.tenantId),
+        client_secret: this.requireEnv('LINKEDIN_CLIENT_SECRET', input.tenantId),
       }).toString(),
       { headers: { 'Content-Type': 'application/x-www-form-urlencoded' } },
     );
@@ -110,8 +110,8 @@ export class LinkedInProvider implements SocialProvider {
       new URLSearchParams({
         grant_type: 'refresh_token',
         refresh_token: refreshToken,
-        client_id: this.requireEnv('LINKEDIN_CLIENT_ID'),
-        client_secret: this.requireEnv('LINKEDIN_CLIENT_SECRET'),
+        client_id: this.requireEnv('LINKEDIN_CLIENT_ID', account.tenantId),
+        client_secret: this.requireEnv('LINKEDIN_CLIENT_SECRET', account.tenantId),
       }).toString(),
       { headers: { 'Content-Type': 'application/x-www-form-urlencoded' } },
     );
@@ -149,7 +149,7 @@ export class LinkedInProvider implements SocialProvider {
     }
   }
 
-  private requireEnv(name: string): string {
-    return this.env.require(name);
+  private requireEnv(name: string, tenantId?: string): string {
+    return this.env.require(name, tenantId);
   }
 }

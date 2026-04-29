@@ -42,8 +42,8 @@ export class TikTokProvider implements SocialProvider {
   buildAuthorizeUrl(input: { tenantId: string; userId: string }): OAuthAuthorizeUrl {
     const state = `${input.tenantId}:${input.userId}:${randomBytes(8).toString('hex')}`;
     const params = new URLSearchParams({
-      client_key: this.requireEnv('TIKTOK_CLIENT_KEY'),
-      redirect_uri: this.requireEnv('TIKTOK_REDIRECT_URI'),
+      client_key: this.requireEnv('TIKTOK_CLIENT_KEY', input.tenantId),
+      redirect_uri: this.requireEnv('TIKTOK_REDIRECT_URI', input.tenantId),
       response_type: 'code',
       scope: 'user.info.basic,video.publish,video.upload',
       state,
@@ -51,15 +51,15 @@ export class TikTokProvider implements SocialProvider {
     return { url: `${AUTHORIZE_URL}?${params.toString()}`, state };
   }
 
-  async handleCallback(input: { code: string; state: string }): Promise<OAuthCallbackResult> {
+  async handleCallback(input: { code: string; state: string; tenantId: string }): Promise<OAuthCallbackResult> {
     const res = await axios.post(
       TOKEN_URL,
       new URLSearchParams({
-        client_key: this.requireEnv('TIKTOK_CLIENT_KEY'),
-        client_secret: this.requireEnv('TIKTOK_CLIENT_SECRET'),
+        client_key: this.requireEnv('TIKTOK_CLIENT_KEY', input.tenantId),
+        client_secret: this.requireEnv('TIKTOK_CLIENT_SECRET', input.tenantId),
         code: input.code,
         grant_type: 'authorization_code',
-        redirect_uri: this.requireEnv('TIKTOK_REDIRECT_URI'),
+        redirect_uri: this.requireEnv('TIKTOK_REDIRECT_URI', input.tenantId),
       }).toString(),
       { headers: { 'Content-Type': 'application/x-www-form-urlencoded' } },
     );
@@ -147,8 +147,8 @@ export class TikTokProvider implements SocialProvider {
     const res = await axios.post(
       TOKEN_URL,
       new URLSearchParams({
-        client_key: this.requireEnv('TIKTOK_CLIENT_KEY'),
-        client_secret: this.requireEnv('TIKTOK_CLIENT_SECRET'),
+        client_key: this.requireEnv('TIKTOK_CLIENT_KEY', account.tenantId),
+        client_secret: this.requireEnv('TIKTOK_CLIENT_SECRET', account.tenantId),
         grant_type: 'refresh_token',
         refresh_token: refreshToken,
       }).toString(),
@@ -162,7 +162,7 @@ export class TikTokProvider implements SocialProvider {
     };
   }
 
-  private requireEnv(name: string): string {
-    return this.env.require(name);
+  private requireEnv(name: string, tenantId?: string): string {
+    return this.env.require(name, tenantId);
   }
 }

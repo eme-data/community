@@ -46,7 +46,7 @@ export interface SocialProvider {
   buildAuthorizeUrl(input: { tenantId: string; userId: string }): OAuthAuthorizeUrl;
 
   /** Exchange the authorization code for tokens + user info */
-  handleCallback(input: { code: string; state: string }): Promise<OAuthCallbackResult>;
+  handleCallback(input: { code: string; state: string; tenantId: string }): Promise<OAuthCallbackResult>;
 
   /** Publish a post on behalf of an account */
   publish(account: SocialAccount, input: PublishInput): Promise<PublishResult>;

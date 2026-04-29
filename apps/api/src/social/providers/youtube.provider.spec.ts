@@ -69,7 +69,7 @@ describe('YouTubeProvider', () => {
       },
     } as any);
 
-    const out = await provider.handleCallback({ code: 'CODE', state: 't1:u1:zz' });
+    const out = await provider.handleCallback({ code: 'CODE', state: 't1:u1:zz', tenantId: 't1' });
     expect(out.providerUserId).toEqual('UCabc');
     expect(out.displayName).toEqual('My Channel');
     expect(out.accessToken).toEqual('AT');
@@ -83,7 +83,7 @@ describe('YouTubeProvider', () => {
       data: { access_token: 'AT', refresh_token: 'RT', expires_in: 3600 },
     } as any);
     mockedAxios.get.mockResolvedValueOnce({ data: { items: [] } } as any);
-    await expect(provider.handleCallback({ code: 'C', state: 's' })).rejects.toThrow(
+    await expect(provider.handleCallback({ code: 'C', state: 's', tenantId: 't1' })).rejects.toThrow(
       /did not return a channel/,
     );
   });

@@ -38,7 +38,12 @@ function AccountsInner() {
   const [accounts, setAccounts] = useState<Account[]>([]);
   const [status, setStatus] = useState<Record<string, ProviderStatus>>({});
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<{ provider: string; missing: string[]; message: string } | null>(null);
+  const [error, setError] = useState<{
+    provider: string;
+    kind: 'not_configured' | 'network';
+    missing: string[];
+    message: string;
+  } | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
   const queryError = params.get('error');
   const connected = params.get('connected');
@@ -74,12 +79,14 @@ function AccountsInner() {
       if (e instanceof ApiError && e.body?.error === 'provider_not_configured') {
         setError({
           provider,
+          kind: 'not_configured',
           missing: e.body.missing ?? [],
           message: e.body.message ?? `${provider} n'est pas encore configuré.`,
         });
       } else {
         setError({
           provider,
+          kind: 'network',
           missing: [],
           message: e instanceof Error ? e.message : `Erreur lors de la connexion à ${provider}.`,
         });
@@ -114,18 +121,36 @@ function AccountsInner() {
           Erreur OAuth : {queryError}
         </div>
       )}
-      {error && (
-        <div className="rounded-lg border border-amber-200 bg-amber-50 dark:bg-amber-950/30 dark:border-amber-900 px-4 py-3 text-sm">
+      {error && error.kind === 'not_configured' && (
+        <div className="rounded-lg border border-amber-200 bg-amber-50 dark:bg-amber-950/30 dark:border-amber-900 px-4 py-3 text-sm space-y-2">
           <p className="font-medium text-amber-800 dark:text-amber-200">
-            {error.provider} n'est pas encore configuré
+            {error.provider} n&apos;est pas encore configuré pour votre espace
           </p>
-          <p className="text-amber-700 dark:text-amber-300 mt-1">
+          <p className="text-amber-700 dark:text-amber-300">
             {error.missing.length > 0
-              ? `Variables manquantes côté serveur : ${error.missing.join(', ')}.`
+              ? `Variables manquantes : ${error.missing.join(', ')}.`
               : error.message}
           </p>
-          <p className="text-xs text-amber-700 dark:text-amber-300 mt-2">
-            L'administrateur doit ajouter ces variables au fichier <code className="font-mono">.env</code> puis redémarrer le service api &amp; worker. Voir la documentation du provider {error.provider}.
+          <p className="text-amber-700 dark:text-amber-300">
+            Vous pouvez fournir vos propres credentials OAuth pour ce réseau dans
+            {' '}
+            <Link href="/settings/oauth-providers" className="underline font-medium">
+              Paramètres → Mes apps OAuth
+            </Link>
+            , ou contacter l&apos;administrateur de la plateforme pour qu&apos;il active ce
+            provider pour tout le monde.
+          </p>
+        </div>
+      )}
+      {error && error.kind === 'network' && (
+        <div className="rounded-lg border border-red-200 bg-red-50 dark:bg-red-950/30 dark:border-red-900 px-4 py-3 text-sm">
+          <p className="font-medium text-red-800 dark:text-red-200">
+            Connexion à {error.provider} impossible
+          </p>
+          <p className="text-red-700 dark:text-red-300 mt-1">{error.message}</p>
+          <p className="text-xs text-red-700 dark:text-red-300 mt-2">
+            Réessayez dans quelques secondes. Si l&apos;erreur persiste, vérifiez que le service
+            API est en ligne ou contactez votre administrateur.
           </p>
         </div>
       )}

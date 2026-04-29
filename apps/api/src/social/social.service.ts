@@ -68,7 +68,7 @@ export class SocialService {
     }
     if (!tenantId || !userId) throw new BadRequestException('Invalid OAuth state');
 
-    const result = await this.getProvider(provider).handleCallback({ code, state });
+    const result = await this.getProvider(provider).handleCallback({ code, state, tenantId });
 
     const account = await this.prisma.socialAccount.upsert({
       where: {

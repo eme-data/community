@@ -27,9 +27,9 @@ const PROVIDER_ENV_VARS: Record<string, string[]> = {
   YOUTUBE: ['YOUTUBE_CLIENT_ID', 'YOUTUBE_CLIENT_SECRET', 'YOUTUBE_REDIRECT_URI'],
 };
 
-function missingEnvVars(provider: SocialProvider, env: ProviderEnvService): string[] {
+function missingEnvVars(provider: SocialProvider, env: ProviderEnvService, tenantId?: string): string[] {
   const required = PROVIDER_ENV_VARS[provider] ?? [];
-  return env.missing(required);
+  return env.missing(required, tenantId);
 }
 
 @Controller('social')
@@ -41,12 +41,20 @@ export class SocialController {
 
   @Get('providers/status')
   @UseGuards(JwtAuthGuard)
-  providersStatus() {
-    return Object.entries(PROVIDER_PATH).map(([slug, key]) => ({
-      provider: slug,
-      configured: missingEnvVars(key, this.env).length === 0,
-      missing: missingEnvVars(key, this.env),
-    }));
+  providersStatus(@CurrentUser() user: AuthUser) {
+    return Object.entries(PROVIDER_PATH).map(([slug, key]) => {
+      const required = PROVIDER_ENV_VARS[key] ?? [];
+      const missingTenant = missingEnvVars(key, this.env, user.tenantId);
+      const tenantOverride = this.env.tenantHasOverride(user.tenantId, required);
+      return {
+        provider: slug,
+        configured: missingTenant.length === 0,
+        missing: missingTenant,
+        // When the tenant uses platform-shared credentials we mark them as such
+        // so the UI can show "Using platform credentials" vs "Using your own".
+        usingTenantOverride: tenantOverride,
+      };
+    });
   }
 
   @Get('accounts')
@@ -91,7 +99,7 @@ export class SocialController {
     const key = PROVIDER_PATH[provider];
     if (!key) throw new BadRequestException('Unknown provider');
 
-    const missing = missingEnvVars(key, this.env);
+    const missing = missingEnvVars(key, this.env, user.tenantId);
     if (missing.length) {
       // 503 = "service not configured yet". The frontend surfaces the
       // missing env vars so the operator knows exactly what to add.

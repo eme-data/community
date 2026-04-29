@@ -86,6 +86,7 @@ const navGroups: NavGroup[] = [
       { href: '/settings/branding', label: 'Branding', icon: PAL },
       { href: '/settings/brand-voice', label: 'Brand voice', icon: MIC },
       { href: '/settings/api-keys', label: 'Clés API', icon: KEY },
+      { href: '/settings/oauth-providers', label: 'Mes apps OAuth', icon: KEY },
       { href: '/settings/webhooks', label: 'Webhooks', icon: BOLT },
       { href: '/settings/billing', label: 'Facturation', icon: CARD },
       { href: '/settings/security', label: 'Sécurité', icon: SHIELD },

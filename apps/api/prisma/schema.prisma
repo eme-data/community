@@ -92,6 +92,7 @@ model Tenant {
   templates             PostTemplate[]
   webhooks              Webhook[]
   notifications         Notification[]
+  providerConfigs       TenantProviderConfig[]
 }
 
 model User {
@@ -136,6 +137,26 @@ model ProviderConfig {
   updatedByUserId String?
   updatedAt       DateTime       @updatedAt
   createdAt       DateTime       @default(now())
+}
+
+// Tenant-level override of ProviderConfig. When a tenant brings its own OAuth
+// app credentials, this row wins over the platform-wide ProviderConfig and
+// process.env for that tenant only. Lookup priority in ProviderEnvService:
+// tenant > platform > env. Tenants without a row keep using shared credentials.
+model TenantProviderConfig {
+  id              String         @id @default(cuid())
+  tenant          Tenant         @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  tenantId        String
+  provider        SocialProvider
+  values          Json           @default("{}")
+  encryptedKeys   String[]       @default([])
+  isActive        Boolean        @default(true)
+  updatedByUserId String?
+  updatedAt       DateTime       @updatedAt
+  createdAt       DateTime       @default(now())
+
+  @@unique([tenantId, provider])
+  @@index([tenantId])
 }
 
 model BackupCode {

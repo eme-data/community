@@ -50,8 +50,8 @@ export class YouTubeProvider implements SocialProvider {
   buildAuthorizeUrl(input: { tenantId: string; userId: string }): OAuthAuthorizeUrl {
     const state = `${input.tenantId}:${input.userId}:${randomBytes(8).toString('hex')}`;
     const params = new URLSearchParams({
-      client_id: this.requireEnv('YOUTUBE_CLIENT_ID'),
-      redirect_uri: this.requireEnv('YOUTUBE_REDIRECT_URI'),
+      client_id: this.requireEnv('YOUTUBE_CLIENT_ID', input.tenantId),
+      redirect_uri: this.requireEnv('YOUTUBE_REDIRECT_URI', input.tenantId),
       response_type: 'code',
       access_type: 'offline', // required to get a refresh_token
       prompt: 'consent', // force refresh_token on every connect
@@ -62,14 +62,14 @@ export class YouTubeProvider implements SocialProvider {
     return { url: `${AUTHORIZE_URL}?${params.toString()}`, state };
   }
 
-  async handleCallback(input: { code: string; state: string }): Promise<OAuthCallbackResult> {
+  async handleCallback(input: { code: string; state: string; tenantId: string }): Promise<OAuthCallbackResult> {
     const tokenRes = await axios.post(
       TOKEN_URL,
       new URLSearchParams({
         code: input.code,
-        client_id: this.requireEnv('YOUTUBE_CLIENT_ID'),
-        client_secret: this.requireEnv('YOUTUBE_CLIENT_SECRET'),
-        redirect_uri: this.requireEnv('YOUTUBE_REDIRECT_URI'),
+        client_id: this.requireEnv('YOUTUBE_CLIENT_ID', input.tenantId),
+        client_secret: this.requireEnv('YOUTUBE_CLIENT_SECRET', input.tenantId),
+        redirect_uri: this.requireEnv('YOUTUBE_REDIRECT_URI', input.tenantId),
         grant_type: 'authorization_code',
       }).toString(),
       { headers: { 'Content-Type': 'application/x-www-form-urlencoded' } },
@@ -172,8 +172,8 @@ export class YouTubeProvider implements SocialProvider {
     const res = await axios.post(
       TOKEN_URL,
       new URLSearchParams({
-        client_id: this.requireEnv('YOUTUBE_CLIENT_ID'),
-        client_secret: this.requireEnv('YOUTUBE_CLIENT_SECRET'),
+        client_id: this.requireEnv('YOUTUBE_CLIENT_ID', account.tenantId),
+        client_secret: this.requireEnv('YOUTUBE_CLIENT_SECRET', account.tenantId),
         refresh_token: refreshToken,
         grant_type: 'refresh_token',
       }).toString(),
@@ -212,7 +212,7 @@ export class YouTubeProvider implements SocialProvider {
     }
   }
 
-  private requireEnv(name: string): string {
-    return this.env.require(name);
+  private requireEnv(name: string, tenantId?: string): string {
+    return this.env.require(name, tenantId);
   }
 }

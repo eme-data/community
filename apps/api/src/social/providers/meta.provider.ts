@@ -52,8 +52,8 @@ export class MetaProvider implements SocialProvider {
         : 'pages_show_list,pages_manage_posts,pages_read_engagement,public_profile';
 
     const params = new URLSearchParams({
-      client_id: this.requireEnv('META_APP_ID'),
-      redirect_uri: this.requireEnv('META_REDIRECT_URI'),
+      client_id: this.requireEnv('META_APP_ID', input.tenantId),
+      redirect_uri: this.requireEnv('META_REDIRECT_URI', input.tenantId),
       state,
       response_type: 'code',
       scope,
@@ -61,12 +61,12 @@ export class MetaProvider implements SocialProvider {
     return { url: `${AUTHORIZE_URL}?${params.toString()}`, state };
   }
 
-  async handleCallback(input: { code: string; state: string }): Promise<OAuthCallbackResult> {
+  async handleCallback(input: { code: string; state: string; tenantId: string }): Promise<OAuthCallbackResult> {
     const tokenRes = await axios.get(TOKEN_URL, {
       params: {
-        client_id: this.requireEnv('META_APP_ID'),
-        client_secret: this.requireEnv('META_APP_SECRET'),
-        redirect_uri: this.requireEnv('META_REDIRECT_URI'),
+        client_id: this.requireEnv('META_APP_ID', input.tenantId),
+        client_secret: this.requireEnv('META_APP_SECRET', input.tenantId),
+        redirect_uri: this.requireEnv('META_REDIRECT_URI', input.tenantId),
         code: input.code,
       },
     });
@@ -246,8 +246,8 @@ export class MetaProvider implements SocialProvider {
     throw new Error('IG container did not become ready in time');
   }
 
-  private requireEnv(name: string): string {
-    return this.env.require(name);
+  private requireEnv(name: string, tenantId?: string): string {
+    return this.env.require(name, tenantId);
   }
 }
 

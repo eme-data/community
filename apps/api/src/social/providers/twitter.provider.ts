@@ -40,8 +40,8 @@ export class TwitterProvider implements SocialProvider {
 
     const params = new URLSearchParams({
       response_type: 'code',
-      client_id: this.requireEnv('TWITTER_CLIENT_ID'),
-      redirect_uri: this.requireEnv('TWITTER_REDIRECT_URI'),
+      client_id: this.requireEnv('TWITTER_CLIENT_ID', input.tenantId),
+      redirect_uri: this.requireEnv('TWITTER_REDIRECT_URI', input.tenantId),
       scope: 'tweet.read tweet.write users.read offline.access',
       state,
       code_challenge: codeChallenge,
@@ -50,7 +50,7 @@ export class TwitterProvider implements SocialProvider {
     return { url: `${AUTHORIZE_URL}?${params.toString()}`, state };
   }
 
-  async handleCallback(input: { code: string; state: string }): Promise<OAuthCallbackResult> {
+  async handleCallback(input: { code: string; state: string; tenantId: string }): Promise<OAuthCallbackResult> {
     const verifier = pkceStore.get(input.state);
     if (!verifier) throw new Error('Missing PKCE verifier — restart the OAuth flow');
     pkceStore.delete(input.state);
@@ -60,14 +60,14 @@ export class TwitterProvider implements SocialProvider {
       new URLSearchParams({
         grant_type: 'authorization_code',
         code: input.code,
-        redirect_uri: this.requireEnv('TWITTER_REDIRECT_URI'),
-        client_id: this.requireEnv('TWITTER_CLIENT_ID'),
+        redirect_uri: this.requireEnv('TWITTER_REDIRECT_URI', input.tenantId),
+        client_id: this.requireEnv('TWITTER_CLIENT_ID', input.tenantId),
         code_verifier: verifier,
       }).toString(),
       {
         auth: {
-          username: this.requireEnv('TWITTER_CLIENT_ID'),
-          password: this.requireEnv('TWITTER_CLIENT_SECRET'),
+          username: this.requireEnv('TWITTER_CLIENT_ID', input.tenantId),
+          password: this.requireEnv('TWITTER_CLIENT_SECRET', input.tenantId),
         },
         headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
       },
@@ -123,12 +123,12 @@ export class TwitterProvider implements SocialProvider {
       new URLSearchParams({
         grant_type: 'refresh_token',
         refresh_token: refreshToken,
-        client_id: this.requireEnv('TWITTER_CLIENT_ID'),
+        client_id: this.requireEnv('TWITTER_CLIENT_ID', account.tenantId),
       }).toString(),
       {
         auth: {
-          username: this.requireEnv('TWITTER_CLIENT_ID'),
-          password: this.requireEnv('TWITTER_CLIENT_SECRET'),
+          username: this.requireEnv('TWITTER_CLIENT_ID', account.tenantId),
+          password: this.requireEnv('TWITTER_CLIENT_SECRET', account.tenantId),
         },
         headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
       },
@@ -140,8 +140,8 @@ export class TwitterProvider implements SocialProvider {
     };
   }
 
-  private requireEnv(name: string): string {
-    return this.env.require(name);
+  private requireEnv(name: string, tenantId?: string): string {
+    return this.env.require(name, tenantId);
   }
 }
 
