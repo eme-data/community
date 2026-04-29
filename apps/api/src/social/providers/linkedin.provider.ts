@@ -25,6 +25,8 @@ export class LinkedInProvider implements SocialProvider {
   readonly key = 'LINKEDIN' as const;
   private readonly logger = new Logger(LinkedInProvider.name);
 
+  constructor(private readonly env: ProviderEnvService) {}
+
   buildAuthorizeUrl(input: { tenantId: string; userId: string }): OAuthAuthorizeUrl {
     const state = `${input.tenantId}:${input.userId}:${randomBytes(8).toString('hex')}`;
     const params = new URLSearchParams({
