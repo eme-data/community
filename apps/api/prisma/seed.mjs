@@ -5,6 +5,11 @@
  *   docker compose exec api npx prisma db seed
  *
  * Idempotent: safe to run multiple times.
+ *
+ * Onboarding state is reset on every run so that logging in as the demo
+ * user always lands on the auto-onboarding flow (verify → connect → done).
+ * Set DEMO_SKIP_ONBOARDING=1 in the env to keep the existing onboarding
+ * state untouched.
  */
 import { PrismaClient } from '@prisma/client';
 import bcrypt from 'bcrypt';
@@ -14,6 +19,7 @@ const prisma = new PrismaClient();
 const DEMO_EMAIL = 'demo@meoxa.app';
 const DEMO_PASSWORD = 'demo1234';
 const DEMO_TENANT_SLUG = 'demo';
+const SKIP_ONBOARDING = process.env.DEMO_SKIP_ONBOARDING === '1';
 
 async function main() {
   const passwordHash = await bcrypt.hash(DEMO_PASSWORD, 12);
@@ -29,8 +35,20 @@ async function main() {
         name: 'Demo Agency',
         brandName: 'Demo Agency',
         primaryColor: '#6366f1',
-        onboardingStep: 'done',
-        onboardingCompletedAt: new Date(),
+        // Leave onboarding incomplete so the demo user goes through the
+        // auto-onboarding flow at first login.
+        onboardingStep: SKIP_ONBOARDING ? 'done' : null,
+        onboardingCompletedAt: SKIP_ONBOARDING ? new Date() : null,
+      },
+    });
+  } else if (!SKIP_ONBOARDING) {
+    // Reset onboarding state on existing demo tenant so the auto-onboarding
+    // flow is visible again on every reseed.
+    tenant = await prisma.tenant.update({
+      where: { id: tenant.id },
+      data: {
+        onboardingStep: null,
+        onboardingCompletedAt: null,
       },
     });
   }
@@ -132,8 +150,9 @@ async function main() {
   }
 
   console.log('✅ Seed terminé.');
-  console.log(`   Tenant : ${tenant.name} (${tenant.slug})`);
-  console.log(`   Login  : ${DEMO_EMAIL} / ${DEMO_PASSWORD}`);
+  console.log(`   Tenant   : ${tenant.name} (${tenant.slug})`);
+  console.log(`   Login    : ${DEMO_EMAIL} / ${DEMO_PASSWORD}`);
+  console.log(`   Onboarding: ${tenant.onboardingCompletedAt ? 'done (skipped)' : 'pending — visible at next login'}`);
 }
 
 main()

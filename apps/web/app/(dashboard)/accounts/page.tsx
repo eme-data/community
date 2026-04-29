@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { Suspense, useEffect, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { api } from '@/lib/api';
+import { api, ApiError } from '@/lib/api';
 
 interface Account {
   id: string;
@@ -12,6 +12,12 @@ interface Account {
   displayName?: string;
   avatarUrl?: string;
   expiresAt?: string;
+}
+
+interface ProviderStatus {
+  provider: string;
+  configured: boolean;
+  missing: string[];
 }
 
 const PROVIDERS = [
@@ -27,24 +33,57 @@ function AccountsInner() {
   const params = useSearchParams();
   const router = useRouter();
   const [accounts, setAccounts] = useState<Account[]>([]);
+  const [status, setStatus] = useState<Record<string, ProviderStatus>>({});
   const [loading, setLoading] = useState(true);
-  const error = params.get('error');
+  const [error, setError] = useState<{ provider: string; missing: string[]; message: string } | null>(null);
+  const [busy, setBusy] = useState<string | null>(null);
+  const queryError = params.get('error');
   const connected = params.get('connected');
 
   function refresh() {
     setLoading(true);
-    api<Account[]>('/social/accounts').then(setAccounts).finally(() => setLoading(false));
+    Promise.all([
+      api<Account[]>('/social/accounts'),
+      api<ProviderStatus[]>('/social/providers/status').catch(() => [] as ProviderStatus[]),
+    ])
+      .then(([accs, st]) => {
+        setAccounts(accs);
+        const map: Record<string, ProviderStatus> = {};
+        for (const s of st) map[s.provider] = s;
+        setStatus(map);
+      })
+      .finally(() => setLoading(false));
   }
 
   useEffect(() => { refresh(); }, []);
 
   async function connect(provider: string, manual?: boolean) {
+    setError(null);
     if (manual) {
       router.push(`/accounts/${provider}/connect`);
       return;
     }
-    const res = await api<{ url: string }>(`/social/${provider}/authorize`);
-    window.location.href = res.url;
+    setBusy(provider);
+    try {
+      const res = await api<{ url: string }>(`/social/${provider}/authorize`);
+      window.location.href = res.url;
+    } catch (e) {
+      if (e instanceof ApiError && e.body?.error === 'provider_not_configured') {
+        setError({
+          provider,
+          missing: e.body.missing ?? [],
+          message: e.body.message ?? `${provider} n'est pas encore configuré.`,
+        });
+      } else {
+        setError({
+          provider,
+          missing: [],
+          message: e instanceof Error ? e.message : `Erreur lors de la connexion à ${provider}.`,
+        });
+      }
+    } finally {
+      setBusy(null);
+    }
   }
 
   async function remove(id: string) {
@@ -54,44 +93,109 @@ function AccountsInner() {
   }
 
   return (
-    <div className="space-y-6">
-      <h1 className="text-2xl font-bold">Comptes sociaux</h1>
+    <div className="space-y-8">
+      <header>
+        <h1 className="text-2xl font-bold">Comptes sociaux</h1>
+        <p className="text-sm text-slate-500 mt-1">
+          Connectez vos pages et profils pour publier directement depuis Community.
+        </p>
+      </header>
 
-      {connected && <p className="text-emerald-700 text-sm">Compte {connected} connecté ✓</p>}
-      {error && <p className="text-red-600 text-sm">Erreur OAuth : {error}</p>}
+      {connected && (
+        <div className="rounded-lg border border-emerald-200 bg-emerald-50 dark:bg-emerald-950/30 dark:border-emerald-900 px-4 py-3 text-sm text-emerald-700 dark:text-emerald-300">
+          Compte {connected} connecté ✓
+        </div>
+      )}
+      {queryError && (
+        <div className="rounded-lg border border-red-200 bg-red-50 dark:bg-red-950/30 dark:border-red-900 px-4 py-3 text-sm text-red-700 dark:text-red-300">
+          Erreur OAuth : {queryError}
+        </div>
+      )}
+      {error && (
+        <div className="rounded-lg border border-amber-200 bg-amber-50 dark:bg-amber-950/30 dark:border-amber-900 px-4 py-3 text-sm">
+          <p className="font-medium text-amber-800 dark:text-amber-200">
+            {error.provider} n'est pas encore configuré
+          </p>
+          <p className="text-amber-700 dark:text-amber-300 mt-1">
+            {error.missing.length > 0
+              ? `Variables manquantes côté serveur : ${error.missing.join(', ')}.`
+              : error.message}
+          </p>
+          <p className="text-xs text-amber-700 dark:text-amber-300 mt-2">
+            L'administrateur doit ajouter ces variables au fichier <code className="font-mono">.env</code> puis redémarrer le service api &amp; worker. Voir la documentation du provider {error.provider}.
+          </p>
+        </div>
+      )}
 
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-        {PROVIDERS.map(p => (
-          <button
-            key={p.key}
-            onClick={() => connect(p.key, (p as any).manual)}
-            className="p-4 rounded-lg border border-slate-300 dark:border-slate-700 hover:border-brand hover:text-brand transition text-left"
-          >
-            <p className="font-semibold">{p.label}</p>
-            <p className="text-xs text-slate-500">{(p as any).manual ? 'App password' : 'Connecter un compte'}</p>
-          </button>
-        ))}
+      <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+        {PROVIDERS.map((p) => {
+          const isManual = (p as any).manual;
+          const isConfigured = isManual || status[p.key]?.configured !== false;
+          const isBusy = busy === p.key;
+          const isConnected = accounts.some((a) => a.provider.toLowerCase() === p.key);
+          return (
+            <button
+              key={p.key}
+              onClick={() => connect(p.key, isManual)}
+              disabled={isBusy}
+              className="p-4 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 hover:border-brand hover:shadow-sm transition text-left disabled:opacity-60"
+            >
+              <div className="flex items-center justify-between gap-2 mb-1">
+                <p className="font-semibold">{p.label}</p>
+                {isConnected && <span className="text-xs text-emerald-600">✓ connecté</span>}
+                {!isConfigured && !isConnected && (
+                  <span className="text-xs text-amber-600">⚠ à configurer</span>
+                )}
+              </div>
+              <p className="text-xs text-slate-500">
+                {isBusy
+                  ? 'Redirection...'
+                  : isManual
+                  ? 'Connexion par mot de passe d\'application'
+                  : isConfigured
+                  ? 'Connecter un compte'
+                  : 'Credentials OAuth manquants'}
+              </p>
+            </button>
+          );
+        })}
       </div>
 
-      <h2 className="text-lg font-semibold pt-4">Comptes connectés</h2>
-      {loading ? (
-        <p>Chargement...</p>
-      ) : accounts.length === 0 ? (
-        <p className="text-sm text-slate-500">Aucun compte connecté.</p>
-      ) : (
-        <ul className="divide-y divide-slate-200 dark:divide-slate-800 border border-slate-200 dark:border-slate-800 rounded">
-          {accounts.map(a => (
-            <li key={a.id} className="p-3 flex items-center gap-3">
-              {a.avatarUrl && <img src={a.avatarUrl} alt="" className="w-8 h-8 rounded-full" />}
-              <div className="flex-1">
-                <p className="font-medium text-sm">{a.provider} — {a.displayName || a.providerUserId}</p>
-                {a.expiresAt && <p className="text-xs text-slate-500">Expire le {new Date(a.expiresAt).toLocaleString()}</p>}
-              </div>
-              <button onClick={() => remove(a.id)} className="text-sm text-red-600 hover:underline">Supprimer</button>
-            </li>
-          ))}
-        </ul>
-      )}
+      <div>
+        <h2 className="text-lg font-semibold mb-3">Comptes connectés</h2>
+        {loading ? (
+          <div className="space-y-2">
+            <div className="h-12 bg-slate-100 dark:bg-slate-900 rounded-lg animate-pulse" />
+            <div className="h-12 bg-slate-100 dark:bg-slate-900 rounded-lg animate-pulse" />
+          </div>
+        ) : accounts.length === 0 ? (
+          <p className="text-sm text-slate-500 p-6 rounded-xl border border-dashed border-slate-300 dark:border-slate-800 text-center">
+            Aucun compte connecté pour le moment. Cliquez sur un réseau ci-dessus pour démarrer.
+          </p>
+        ) : (
+          <ul className="divide-y divide-slate-100 dark:divide-slate-800 border border-slate-200 dark:border-slate-800 rounded-xl overflow-hidden bg-white dark:bg-slate-900">
+            {accounts.map((a) => (
+              <li key={a.id} className="p-4 flex items-center gap-3">
+                {a.avatarUrl && <img src={a.avatarUrl} alt="" className="w-9 h-9 rounded-full" />}
+                <div className="flex-1 min-w-0">
+                  <p className="font-medium text-sm truncate">
+                    <span className="uppercase text-xs text-slate-500 mr-2">{a.provider}</span>
+                    {a.displayName || a.providerUserId}
+                  </p>
+                  {a.expiresAt && (
+                    <p className="text-xs text-slate-500 mt-0.5">
+                      Token expire le {new Date(a.expiresAt).toLocaleDateString()}
+                    </p>
+                  )}
+                </div>
+                <button onClick={() => remove(a.id)} className="text-sm text-red-600 hover:underline">
+                  Supprimer
+                </button>
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
     </div>
   );
 }

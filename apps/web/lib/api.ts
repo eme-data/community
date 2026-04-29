@@ -13,6 +13,31 @@ export function setToken(t: string | null) {
   else localStorage.removeItem('community.token');
 }
 
+export class ApiError extends Error {
+  status: number;
+  body: any;
+  constructor(message: string, status: number, body: any) {
+    super(message);
+    this.name = 'ApiError';
+    this.status = status;
+    this.body = body;
+  }
+}
+
+async function readError(res: Response): Promise<{ message: string; body: any }> {
+  const text = await res.text();
+  if (!text) return { message: `Request failed: ${res.status}`, body: null };
+  try {
+    const json = JSON.parse(text);
+    const msg =
+      (typeof json === 'object' && (json.message || json.error)) ||
+      `Request failed: ${res.status}`;
+    return { message: typeof msg === 'string' ? msg : JSON.stringify(msg), body: json };
+  } catch {
+    return { message: text, body: null };
+  }
+}
+
 export async function api<T = unknown>(
   path: string,
   init: RequestInit = {},
@@ -24,8 +49,8 @@ export async function api<T = unknown>(
 
   const res = await fetch(`${BASE}${path}`, { ...init, headers });
   if (!res.ok) {
-    const text = await res.text();
-    throw new Error(text || `Request failed: ${res.status}`);
+    const { message, body } = await readError(res);
+    throw new ApiError(message, res.status, body);
   }
   if (res.status === 204) return undefined as T;
   return (await res.json()) as T;
@@ -40,8 +65,8 @@ export async function apiUpload<T = unknown>(path: string, file: File): Promise<
   fd.append('file', file);
   const res = await fetch(`${BASE}${path}`, { method: 'POST', headers, body: fd });
   if (!res.ok) {
-    const text = await res.text();
-    throw new Error(text || `Upload failed: ${res.status}`);
+    const { message, body } = await readError(res);
+    throw new ApiError(message, res.status, body);
   }
   return (await res.json()) as T;
 }

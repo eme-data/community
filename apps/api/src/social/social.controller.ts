@@ -1,4 +1,4 @@
-import { BadRequestException, Body, Controller, Delete, Get, Param, Post, Query, Res, UseGuards } from '@nestjs/common';
+import { BadRequestException, Body, Controller, Delete, Get, HttpException, HttpStatus, Param, Post, Query, Res, UseGuards } from '@nestjs/common';
 import { Response } from 'express';
 import { SocialProvider } from '@prisma/client';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
@@ -16,9 +16,32 @@ const PROVIDER_PATH: Record<string, SocialProvider> = {
   bluesky: 'BLUESKY',
 };
 
+const PROVIDER_ENV_VARS: Record<string, string[]> = {
+  LINKEDIN: ['LINKEDIN_CLIENT_ID', 'LINKEDIN_CLIENT_SECRET', 'LINKEDIN_REDIRECT_URI'],
+  FACEBOOK: ['META_APP_ID', 'META_APP_SECRET', 'META_REDIRECT_URI'],
+  INSTAGRAM: ['META_APP_ID', 'META_APP_SECRET', 'META_REDIRECT_URI'],
+  TIKTOK: ['TIKTOK_CLIENT_KEY', 'TIKTOK_CLIENT_SECRET', 'TIKTOK_REDIRECT_URI'],
+  TWITTER: ['TWITTER_CLIENT_ID', 'TWITTER_CLIENT_SECRET', 'TWITTER_REDIRECT_URI'],
+};
+
+function missingEnvVars(provider: SocialProvider): string[] {
+  const required = PROVIDER_ENV_VARS[provider] ?? [];
+  return required.filter((name) => !process.env[name]);
+}
+
 @Controller('social')
 export class SocialController {
   constructor(private readonly social: SocialService) {}
+
+  @Get('providers/status')
+  @UseGuards(JwtAuthGuard)
+  providersStatus() {
+    return Object.entries(PROVIDER_PATH).map(([slug, key]) => ({
+      provider: slug,
+      configured: missingEnvVars(key).length === 0,
+      missing: missingEnvVars(key),
+    }));
+  }
 
   @Get('accounts')
   @UseGuards(JwtAuthGuard)
@@ -60,8 +83,40 @@ export class SocialController {
   @UseGuards(JwtAuthGuard)
   authorize(@CurrentUser() user: AuthUser, @Param('provider') provider: string) {
     const key = PROVIDER_PATH[provider];
-    if (!key) return { error: 'Unknown provider' };
-    return this.social.buildAuthorizeUrl(key, user.tenantId, user.userId);
+    if (!key) throw new BadRequestException('Unknown provider');
+
+    const missing = missingEnvVars(key);
+    if (missing.length) {
+      // 503 = "service not configured yet". The frontend surfaces the
+      // missing env vars so the operator knows exactly what to add.
+      throw new HttpException(
+        {
+          error: 'provider_not_configured',
+          provider,
+          missing,
+          message: `Provider ${provider} is not configured. Add ${missing.join(', ')} to your environment.`,
+        },
+        HttpStatus.SERVICE_UNAVAILABLE,
+      );
+    }
+
+    try {
+      return this.social.buildAuthorizeUrl(key, user.tenantId, user.userId);
+    } catch (err: any) {
+      const msg: string = err?.message ?? '';
+      if (msg.startsWith('Missing env var ')) {
+        throw new HttpException(
+          {
+            error: 'provider_not_configured',
+            provider,
+            missing: [msg.replace('Missing env var ', '')],
+            message: msg,
+          },
+          HttpStatus.SERVICE_UNAVAILABLE,
+        );
+      }
+      throw err;
+    }
   }
 
   /**
