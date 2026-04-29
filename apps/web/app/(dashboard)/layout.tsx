@@ -2,7 +2,7 @@
 
 import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { Nav } from '@/components/nav';
+import { DashboardShell } from '@/components/dashboard-shell';
 import { ThemeInjector } from '@/components/theme-injector';
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
@@ -14,10 +14,9 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   }, [router]);
 
   return (
-    <div>
+    <>
       <ThemeInjector />
-      <Nav />
-      <main className="max-w-6xl mx-auto p-6">{children}</main>
-    </div>
+      <DashboardShell>{children}</DashboardShell>
+    </>
   );
 }
