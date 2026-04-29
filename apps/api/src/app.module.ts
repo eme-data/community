@@ -74,6 +74,8 @@ import { HealthController } from './health.controller';
     MetricsModule,
     WebhooksModule,
     NotificationsModule,
+    ProviderEnvModule,
+    AdminModule,
   ],
   controllers: [HealthController],
   providers: [{ provide: APP_GUARD, useClass: ThrottlerGuard }],
