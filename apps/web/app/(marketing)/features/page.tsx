@@ -111,7 +111,7 @@ const sections: Section[] = [
       },
       {
         title: 'Hébergement Europe',
-        text: "Datacenters en France et en Allemagne. Aucune donnée personnelle ne quitte l'Union européenne. Conformité RGPD native, DPA disponible sur simple demande.",
+        text: "Datacenters basés en France. Aucune donnée personnelle ne quitte l'Union européenne. Conformité RGPD native, DPA disponible sur simple demande.",
       },
       {
         title: 'Chiffrement permanent',

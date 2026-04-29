@@ -123,7 +123,7 @@ const faq = [
   },
   {
     q: 'Mes données sont-elles hébergées en Europe ?',
-    a: "Oui, par défaut, sur des datacenters en France et en Allemagne. Aucune donnée personnelle ne quitte l'Union européenne.",
+    a: "Oui, sur des datacenters basés en France. Aucune donnée personnelle ne quitte l'Union européenne.",
   },
   {
     q: 'Puis-je avoir un environnement entièrement dédié ?',

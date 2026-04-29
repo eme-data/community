@@ -24,8 +24,8 @@ const blocks: Block[] = [
     lead: "Hébergement souverain, sans transfert hors Union européenne.",
     pillars: [
       {
-        title: 'Datacenters France & Allemagne',
-        text: "Toutes vos données — comptes connectés, contenus, statistiques — sont stockées dans des datacenters opérés en France et en Allemagne. Aucune donnée personnelle ne quitte l'Union européenne.",
+        title: 'Datacenters basés en France',
+        text: "Toutes vos données — comptes connectés, contenus, statistiques — sont stockées dans des datacenters opérés en France. Aucune donnée personnelle ne quitte l'Union européenne.",
       },
       {
         title: 'Aucun transfert hors UE',
