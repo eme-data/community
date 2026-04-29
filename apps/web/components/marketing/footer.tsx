@@ -24,6 +24,21 @@ export function MarketingFooter() {
               </Link>
             </li>
             <li>
+              <Link href="/integrations" className="hover:text-brand">
+                Intégrations
+              </Link>
+            </li>
+            <li>
+              <Link href="/customers" className="hover:text-brand">
+                Clients
+              </Link>
+            </li>
+            <li>
+              <Link href="/security" className="hover:text-brand">
+                Sécurité
+              </Link>
+            </li>
+            <li>
               <Link href="/pricing" className="hover:text-brand">
                 Tarifs
               </Link>

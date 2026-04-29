@@ -40,22 +40,16 @@ export default function LandingPage() {
 
       {/* TRUST BAR */}
       <section className="px-4 pb-16 max-w-6xl mx-auto">
-        <p className="text-center text-xs uppercase tracking-wider text-slate-500 mb-6">
+        <p className="text-center text-xs uppercase tracking-wider text-slate-500 mb-8">
           {t.landing.trustTitle}
         </p>
-        <div className="flex flex-wrap items-center justify-center gap-x-10 gap-y-4 opacity-70">
-          {['NORTHWIND', 'ACME LABS', 'PIXELHAUS', 'DELTA AGENCY', 'FORGE STUDIO', 'CIRCA & CO'].map(
-            (logo) => (
-              <span
-                key={logo}
-                className="text-sm font-bold tracking-widest text-slate-500 dark:text-slate-400"
-              >
-                {logo}
-              </span>
-            ),
-          )}
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
+          <Stat value="6" label={t.landing.trustStat1} />
+          <Stat value="< 5 min" label={t.landing.trustStat2} />
+          <Stat value="100%" label={t.landing.trustStat3} />
+          <Stat value="99,9%" label={t.landing.trustStat4} />
         </div>
-        <p className="mt-8 text-center text-xs text-slate-500">{t.landing.trustNote}</p>
+        <p className="mt-10 text-center text-xs text-slate-500">{t.landing.trustNote}</p>
       </section>
 
       {/* BENEFITS */}
@@ -152,6 +146,15 @@ export default function LandingPage() {
         </div>
       </section>
     </>
+  );
+}
+
+function Stat({ value, label }: { value: string; label: string }) {
+  return (
+    <div className="text-center p-4 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800">
+      <p className="text-3xl md:text-4xl font-bold text-brand">{value}</p>
+      <p className="mt-1 text-xs text-slate-600 dark:text-slate-400">{label}</p>
+    </div>
   );
 }
 

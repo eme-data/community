@@ -1,7 +1,18 @@
 import type { MetadataRoute } from 'next';
 
 const BASE = process.env.APP_URL || 'https://community.meoxa.app';
-const PUBLIC_PATHS = ['', '/features', '/pricing', '/legal/terms', '/legal/privacy', '/login', '/register'];
+const PUBLIC_PATHS = [
+  '',
+  '/features',
+  '/integrations',
+  '/customers',
+  '/security',
+  '/pricing',
+  '/legal/terms',
+  '/legal/privacy',
+  '/login',
+  '/register',
+];
 
 export default function sitemap(): MetadataRoute.Sitemap {
   const now = new Date();

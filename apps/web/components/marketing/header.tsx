@@ -23,6 +23,9 @@ export function MarketingHeader() {
 
   const links = [
     { href: '/features', label: t.nav.features },
+    { href: '/integrations', label: t.nav.integrations },
+    { href: '/customers', label: t.nav.customers },
+    { href: '/security', label: t.nav.security },
     { href: '/pricing', label: t.nav.pricing },
   ];
 
