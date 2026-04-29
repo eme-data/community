@@ -44,17 +44,17 @@ const PROVIDERS: ProviderDef[] = [
       {
         name: 'LINKEDIN_REDIRECT_URI',
         label: 'Redirect URI',
-        helper: 'Doit correspondre EXACTEMENT à l\'URL configurée dans la console LinkedIn.',
+        helper: "Doit correspondre EXACTEMENT à l'URL configurée dans la console LinkedIn.",
         defaultValue: (appUrl) => `${appUrl}/api/social/linkedin/callback`,
       },
     ],
     scopes: 'openid · profile · email · w_member_social',
     steps: [
       'Allez sur https://www.linkedin.com/developers/apps et cliquez "Create app".',
-      'Renseignez le nom de votre app (ex: "Community"), l'éditeur (LinkedIn Page de votre entreprise), un logo, acceptez les conditions.',
-      'Onglet Auth → ajoutez l\'URL de redirection ci-dessous (Redirect URI). Sans cette URL exacte, le login échouera.',
-      'Onglet Products → demandez l\'accès à "Sign In with LinkedIn using OpenID Connect" (instantané) et "Share on LinkedIn" (instantané).',
-      'Si vous voulez publier sur des pages d\'entreprise, demandez aussi "Community Management API" (validation manuelle 1-2 jours).',
+      "Renseignez le nom de votre app (ex: « Community »), l'éditeur (Page LinkedIn de votre entreprise), un logo, et acceptez les conditions.",
+      "Onglet Auth → ajoutez l'URL de redirection ci-dessous (Redirect URI). Sans cette URL exacte, le login échouera.",
+      "Onglet Products → demandez l'accès à « Sign In with LinkedIn using OpenID Connect » (instantané) et « Share on LinkedIn » (instantané).",
+      "Si vous voulez publier sur des pages d'entreprise, demandez aussi « Community Management API » (validation manuelle 1 à 2 jours).",
       'Onglet Auth → copiez le Client ID et le Client Secret et collez-les ci-dessous. Sauvegardez.',
     ],
   },
@@ -79,13 +79,13 @@ const PROVIDERS: ProviderDef[] = [
     ],
     scopes: 'pages_show_list · pages_manage_posts · pages_read_engagement · instagram_basic · instagram_content_publish',
     steps: [
-      'Allez sur https://developers.facebook.com/apps et cliquez "Create App".',
-      'Choisissez le type "Business" → renseignez le nom et l\'email de contact.',
-      'Dans le tableau de bord de l\'app, ajoutez les produits "Facebook Login for Business" et "Instagram".',
-      'Facebook Login → Settings → ajoutez l\'URL de redirection ci-dessous (Valid OAuth Redirect URIs).',
-      'Settings → Basic → copiez l\'App ID et l\'App Secret et collez-les ici.',
-      'Pour publier en production : passez l\'app en mode "Live" et faites valider les permissions par Meta (App Review). En dev/test, ajoutez vos comptes test dans Roles → Test Users.',
-      'Instagram : chaque compte connecté devra être un compte Instagram Business lié à une page Facebook.',
+      "Allez sur https://developers.facebook.com/apps et cliquez « Create App ».",
+      "Choisissez le type « Business » et renseignez le nom + email de contact.",
+      "Dans le tableau de bord de l'app, ajoutez les produits « Facebook Login for Business » et « Instagram ».",
+      "Facebook Login → Settings → ajoutez l'URL de redirection ci-dessous (Valid OAuth Redirect URIs).",
+      "Settings → Basic → copiez l'App ID et l'App Secret puis collez-les ici.",
+      "Pour publier en production : passez l'app en mode « Live » et faites valider les permissions par Meta (App Review). En dev/test, ajoutez vos comptes test dans Roles → Test Users.",
+      "Côté tenant : Instagram requiert un compte Business lié à une page Facebook que l'utilisateur administre.",
     ],
   },
   {
@@ -95,8 +95,8 @@ const PROVIDERS: ProviderDef[] = [
     portalUrl: 'https://developers.facebook.com/apps',
     fields: [],
     steps: [
-      'Aucune configuration séparée. Configurez les credentials Meta dans la section "Facebook & Instagram (Meta)" ci-dessus.',
-      'Côté tenant : lors de la connexion d\'un compte Instagram, l\'utilisateur doit avoir un compte Instagram Business lié à une page Facebook qu\'il administre.',
+      "Aucune configuration séparée. Configurez les credentials Meta dans la section « Facebook & Instagram (Meta) » ci-dessus.",
+      "Côté tenant : lors de la connexion d'un compte Instagram, l'utilisateur doit avoir un compte Instagram Business lié à une page Facebook qu'il administre.",
     ],
   },
   {
@@ -116,17 +116,17 @@ const PROVIDERS: ProviderDef[] = [
     scopes: 'user.info.basic · video.upload · video.publish',
     steps: [
       'Inscrivez-vous comme développeur sur https://developers.tiktok.com/ (validation rapide).',
-      'Cliquez "Create an app" → renseignez le nom, la description, l\'URL du site web (https://community.meoxa.app) et un logo.',
-      'Onglet "Login Kit" → ajoutez l\'URL de redirection ci-dessous (Redirect URI).',
-      'Onglet "Content Posting API" → activez et lisez les guidelines.',
-      'Onglet "Manage" → copiez Client Key et Client Secret. Collez-les ci-dessous.',
-      'TikTok exige une revue manuelle pour passer en production. En sandbox, ajoutez les comptes de vos testeurs dans la section "Testers".',
+      "Cliquez « Create an app » → renseignez le nom, la description, l'URL du site web (https://community.meoxa.app) et un logo.",
+      "Onglet « Login Kit » → ajoutez l'URL de redirection ci-dessous (Redirect URI).",
+      'Onglet « Content Posting API » → activez et lisez les guidelines.',
+      'Onglet « Manage » → copiez Client Key et Client Secret. Collez-les ci-dessous.',
+      "TikTok exige une revue manuelle pour passer en production. En sandbox, ajoutez les comptes de vos testeurs dans la section « Testers ».",
     ],
   },
   {
     key: 'TWITTER',
     label: 'X (Twitter)',
-    description: 'Pour publier des tweets et threads. Note : la publication de tweets via API requiert le tier payant Basic ($100/mois) chez X.',
+    description: "Pour publier des tweets et threads. Note : la publication de tweets via l'API requiert le tier payant Basic chez X.",
     portalUrl: 'https://developer.twitter.com/en/portal/dashboard',
     fields: [
       { name: 'TWITTER_CLIENT_ID', label: 'Client ID' },
@@ -140,11 +140,11 @@ const PROVIDERS: ProviderDef[] = [
     scopes: 'tweet.read · tweet.write · users.read · offline.access',
     steps: [
       'Allez sur https://developer.twitter.com/en/portal/dashboard et créez un projet + une app dans le projet.',
-      'Dans User authentication settings → activez OAuth 2.0 → type "Confidential client" → permissions "Read and write".',
-      'Ajoutez l\'URL de redirection ci-dessous (Callback URI / Redirect URL) et l\'URL de votre site (Website URL).',
-      'Onglet "Keys and tokens" → générez les "OAuth 2.0 Client ID and Client Secret".',
+      "Dans User authentication settings → activez OAuth 2.0 → type « Confidential client » → permissions « Read and write ».",
+      "Ajoutez l'URL de redirection ci-dessous (Callback URI / Redirect URL) et l'URL de votre site (Website URL).",
+      'Onglet « Keys and tokens » → générez les « OAuth 2.0 Client ID and Client Secret ».',
       'Collez-les ci-dessous. Sauvegardez.',
-      'Pour passer en production (réellement poster) : abonnez le projet au tier Basic ($100/mois) ou Pro chez X. Le tier Free permet l\'auth mais pas la publication.',
+      "Pour passer en production (réellement poster) : abonnez le projet au tier Basic chez X. Le tier Free permet l'auth mais pas la publication.",
     ],
   },
 ];
@@ -219,8 +219,8 @@ export default function ProvidersPage() {
         <p className="text-sm text-slate-500 mt-1 max-w-2xl">
           Configurez ici les credentials des apps OAuth que vous avez créées chez chaque réseau
           social (LinkedIn, Meta, TikTok, X). Tous vos clients utiliseront ces apps pour connecter
-          leurs comptes — c'est <strong>vous, l'éditeur SaaS</strong>, qui créez ces apps une seule fois,
-          pas vos clients.
+          leurs comptes — c&apos;est <strong>vous, l&apos;éditeur SaaS</strong>, qui créez ces apps une
+          seule fois, pas vos clients.
         </p>
       </header>
 
@@ -298,6 +298,10 @@ function ProviderCard({
     }
   }
 
+  const redirectField = def.fields.find((f) => f.name.includes('REDIRECT'));
+  const redirectExample = redirectField?.defaultValue?.(appUrl);
+  const placeholderForSecret = '*** (déjà configuré, laissez vide pour ne pas changer)';
+
   return (
     <article className="rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 overflow-hidden">
       <header className="px-5 py-4 flex items-center justify-between gap-4 border-b border-slate-100 dark:border-slate-800">
@@ -335,33 +339,37 @@ function ProviderCard({
               <code className="font-mono">{def.scopes}</code>
             </p>
           )}
-          {def.fields.map((f) => (
-            <div key={f.name}>
-              <label className="block text-sm font-medium mb-1">{f.label}</label>
-              <input
-                type={f.secret ? 'password' : 'text'}
-                value={values[f.name] ?? ''}
-                onChange={(e) =>
-                  setValues((prev) => ({ ...prev, [f.name]: e.target.value }))
-                }
-                placeholder={f.secret && config?.values?.[f.name] === '***' ? '*** (déjà configuré, laissez vide pour ne pas changer)' : f.defaultValue?.(appUrl) ?? ''}
-                className="w-full px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-950 text-sm font-mono"
-                autoComplete="off"
-              />
-              <p className="text-xs text-slate-500 mt-1">
-                <code className="font-mono">{f.name}</code>
-                {f.helper && ` — ${f.helper}`}
-              </p>
-            </div>
-          ))}
+          {def.fields.map((f) => {
+            const placeholder =
+              f.secret && config?.values?.[f.name] === '***'
+                ? placeholderForSecret
+                : f.defaultValue?.(appUrl) ?? '';
+            return (
+              <div key={f.name}>
+                <label className="block text-sm font-medium mb-1">{f.label}</label>
+                <input
+                  type={f.secret ? 'password' : 'text'}
+                  value={values[f.name] ?? ''}
+                  onChange={(e) =>
+                    setValues((prev) => ({ ...prev, [f.name]: e.target.value }))
+                  }
+                  placeholder={placeholder}
+                  className="w-full px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-950 text-sm font-mono"
+                  autoComplete="off"
+                />
+                <p className="text-xs text-slate-500 mt-1">
+                  <code className="font-mono">{f.name}</code>
+                  {f.helper ? ` — ${f.helper}` : ''}
+                </p>
+              </div>
+            );
+          })}
           {missing.length > 0 && (
             <p className="text-xs text-amber-700 dark:text-amber-400">
               Variables encore manquantes : {missing.join(', ')}.
             </p>
           )}
-          {error && (
-            <p className="text-sm text-red-600">{error}</p>
-          )}
+          {error && <p className="text-sm text-red-600">{error}</p>}
           <div className="flex items-center gap-3">
             <button
               type="submit"
@@ -401,12 +409,10 @@ function ProviderCard({
                 <li key={i}>{s}</li>
               ))}
             </ol>
-            {def.fields.find((f) => f.name.includes('REDIRECT')) && (
+            {redirectExample && (
               <p className="text-xs text-slate-500 pt-2 border-t border-slate-200 dark:border-slate-800">
                 <span className="font-medium">URL de redirection à utiliser : </span>
-                <code className="font-mono break-all">
-                  {def.fields.find((f) => f.name.includes('REDIRECT'))?.defaultValue?.(appUrl)}
-                </code>
+                <code className="font-mono break-all">{redirectExample}</code>
               </p>
             )}
           </div>

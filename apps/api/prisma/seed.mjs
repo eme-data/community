@@ -37,7 +37,7 @@ async function main() {
         primaryColor: '#6366f1',
         // Leave onboarding incomplete so the demo user goes through the
         // auto-onboarding flow at first login.
-        onboardingStep: SKIP_ONBOARDING ? 'done' : null,
+        onboardingStep: SKIP_ONBOARDING ? 'done' : 'welcome',
         onboardingCompletedAt: SKIP_ONBOARDING ? new Date() : null,
       },
     });
@@ -47,7 +47,7 @@ async function main() {
     tenant = await prisma.tenant.update({
       where: { id: tenant.id },
       data: {
-        onboardingStep: null,
+        onboardingStep: 'welcome',
         onboardingCompletedAt: null,
       },
     });
