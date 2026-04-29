@@ -12,6 +12,8 @@ interface Account {
   displayName?: string;
   avatarUrl?: string;
   expiresAt?: string;
+  refreshError?: string | null;
+  refreshFailedAt?: string | null;
 }
 
 interface ProviderStatus {
@@ -178,16 +180,35 @@ function AccountsInner() {
               <li key={a.id} className="p-4 flex items-center gap-3">
                 {a.avatarUrl && <img src={a.avatarUrl} alt="" className="w-9 h-9 rounded-full" />}
                 <div className="flex-1 min-w-0">
-                  <p className="font-medium text-sm truncate">
-                    <span className="uppercase text-xs text-slate-500 mr-2">{a.provider}</span>
-                    {a.displayName || a.providerUserId}
+                  <p className="font-medium text-sm truncate flex items-center gap-2">
+                    <span className="uppercase text-xs text-slate-500">{a.provider}</span>
+                    <span className="truncate">{a.displayName || a.providerUserId}</span>
+                    {a.refreshError && (
+                      <span className="shrink-0 text-xs px-2 py-0.5 rounded bg-red-100 text-red-700 dark:bg-red-950 dark:text-red-300 font-medium">
+                        Reconnexion requise
+                      </span>
+                    )}
                   </p>
-                  {a.expiresAt && (
-                    <p className="text-xs text-slate-500 mt-0.5">
-                      Token expire le {new Date(a.expiresAt).toLocaleDateString()}
+                  {a.refreshError ? (
+                    <p className="text-xs text-red-600 dark:text-red-400 mt-0.5 truncate" title={a.refreshError}>
+                      Erreur de rafraîchissement : {a.refreshError}
                     </p>
+                  ) : (
+                    a.expiresAt && (
+                      <p className="text-xs text-slate-500 mt-0.5">
+                        Token expire le {new Date(a.expiresAt).toLocaleDateString()}
+                      </p>
+                    )
                   )}
                 </div>
+                {a.refreshError && (
+                  <button
+                    onClick={() => connect(a.provider.toLowerCase())}
+                    className="text-sm px-3 py-1.5 rounded-lg bg-brand text-white hover:bg-brand-dark"
+                  >
+                    Reconnecter
+                  </button>
+                )}
                 <button onClick={() => remove(a.id)} className="text-sm text-red-600 hover:underline">
                   Supprimer
                 </button>

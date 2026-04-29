@@ -98,6 +98,7 @@ const adminGroup: NavGroup = {
   label: 'Administration plateforme',
   items: [
     { href: '/settings/providers', label: 'Providers OAuth', icon: KEY },
+    { href: '/settings/queues', label: 'Files & jobs', icon: BOLT },
   ],
 };
 

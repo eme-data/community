@@ -268,6 +268,9 @@ model SocialAccount {
   scopes          String?
   // Provider-specific extras (page id, IG business id, …) as JSON
   metadata        Json?
+  // Set when token refresh fails or provider returns auth error — UI shows "Reconnect".
+  refreshError    String?
+  refreshFailedAt DateTime?
   createdAt       DateTime       @default(now())
   updatedAt       DateTime       @updatedAt
 

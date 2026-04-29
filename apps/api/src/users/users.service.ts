@@ -14,6 +14,79 @@ export class UsersService {
   }
 
   /**
+   * GDPR / RGPD data portability — returns every record tied to this user
+   * across all tenants where they are a member. Secrets (passwords, OAuth
+   * tokens, TOTP) are excluded.
+   */
+  async exportAccount(userId: string) {
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: {
+        id: true,
+        email: true,
+        name: true,
+        createdAt: true,
+        emailVerifiedAt: true,
+        totpEnabledAt: true,
+        isSuperAdmin: true,
+        memberships: {
+          select: {
+            role: true,
+            createdAt: true,
+            tenant: {
+              select: { id: true, slug: true, name: true, plan: true, createdAt: true },
+            },
+          },
+        },
+      },
+    });
+    if (!user) throw new NotFoundException();
+
+    const tenantIds = user.memberships.map((m) => m.tenant.id);
+
+    const [posts, audit, notifications, apiKeys] = await Promise.all([
+      this.prisma.post.findMany({
+        where: { authorUserId: userId },
+        select: {
+          id: true, tenantId: true, content: true, status: true,
+          scheduledAt: true, publishedAt: true, createdAt: true,
+          targets: {
+            select: {
+              id: true, status: true, providerUrl: true, providerPostId: true,
+              publishedAt: true, errorMessage: true,
+              account: { select: { provider: true, displayName: true } },
+            },
+          },
+        },
+      }),
+      this.prisma.auditLog.findMany({
+        where: { OR: [{ userId }, { tenantId: { in: tenantIds } }] },
+        select: { createdAt: true, tenantId: true, action: true, target: true, ip: true, payload: true },
+        orderBy: { createdAt: 'desc' },
+        take: 5000,
+      }),
+      this.prisma.notification.findMany({
+        where: { userId },
+        select: { type: true, title: true, body: true, link: true, createdAt: true, readAt: true },
+      }),
+      this.prisma.apiKey.findMany({
+        where: { tenantId: { in: tenantIds } },
+        select: { name: true, prefix: true, createdAt: true, lastUsedAt: true, tenantId: true },
+      }),
+    ]);
+
+    return {
+      generatedAt: new Date().toISOString(),
+      schemaVersion: 1,
+      user,
+      posts,
+      auditLogs: audit,
+      notifications,
+      apiKeys,
+    };
+  }
+
+  /**
    * GDPR account deletion. Removes the user and any tenant they own solo
    * (i.e. tenants with no other OWNER). Tenants where they're not the only
    * owner are simply detached via membership cascade.

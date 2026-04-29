@@ -1,4 +1,5 @@
-import { Body, Controller, Delete, Get, UseGuards } from '@nestjs/common';
+import { Body, Controller, Delete, Get, Res, UseGuards } from '@nestjs/common';
+import type { Response } from 'express';
 import { IsString, MinLength } from 'class-validator';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { CurrentUser, AuthUser } from '../auth/current-user.decorator';
@@ -16,6 +17,15 @@ export class UsersController {
   @Get('me')
   me(@CurrentUser() user: AuthUser) {
     return this.users.findById(user.userId);
+  }
+
+  @Get('me/export')
+  async export(@CurrentUser() user: AuthUser, @Res() res: Response) {
+    const dump = await this.users.exportAccount(user.userId);
+    const filename = `community-export-${user.userId}-${Date.now()}.json`;
+    res.setHeader('Content-Type', 'application/json; charset=utf-8');
+    res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+    res.send(JSON.stringify(dump, null, 2));
   }
 
   @Delete('me')

@@ -73,6 +73,28 @@ export default function SecurityPage() {
     }
   }
 
+  async function exportData() {
+    try {
+      const base = process.env.NEXT_PUBLIC_API_URL || '/api';
+      const token = typeof window !== 'undefined' ? localStorage.getItem('community.token') : null;
+      const res = await fetch(`${base}/users/me/export`, {
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+      });
+      if (!res.ok) throw new Error(`Export failed: ${res.status}`);
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `community-export-${Date.now()}.json`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+    } catch (err: any) {
+      alert(err?.message ?? 'Export failed');
+    }
+  }
+
   async function deleteAccount() {
     const password = prompt('Entrez votre mot de passe pour supprimer définitivement votre compte :');
     if (!password) return;
@@ -148,6 +170,16 @@ export default function SecurityPage() {
             </button>
           </div>
         )}
+      </div>
+
+      <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg p-4 space-y-2">
+        <h2 className="font-semibold">Exporter mes données (RGPD)</h2>
+        <p className="text-sm text-slate-500">
+          Téléchargez un fichier JSON contenant votre profil, vos posts, vos notifications et l&apos;historique d&apos;audit des espaces dont vous êtes membre. Les secrets (mots de passe, tokens OAuth) sont exclus.
+        </p>
+        <button onClick={exportData} className="px-4 py-2 rounded bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-sm">
+          Télécharger l&apos;export JSON
+        </button>
       </div>
 
       <div className="border border-red-200 dark:border-red-900/40 bg-red-50 dark:bg-red-900/10 rounded-lg p-4 space-y-2">

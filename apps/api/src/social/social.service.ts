@@ -2,6 +2,7 @@ import { Injectable, NotFoundException, BadRequestException, Logger } from '@nes
 import { SocialAccount, SocialProvider as ProviderEnum } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { AuditService } from '../audit/audit.service';
+import { NotificationsService } from '../notifications/notifications.service';
 import { LinkedInProvider } from './providers/linkedin.provider';
 import { FacebookProvider, InstagramProvider } from './providers/meta.provider';
 import { TikTokProvider } from './providers/tiktok.provider';
@@ -23,6 +24,7 @@ export class SocialService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly audit: AuditService,
+    private readonly notifications: NotificationsService,
     linkedin: LinkedInProvider,
     facebook: FacebookProvider,
     instagram: InstagramProvider,
@@ -117,6 +119,8 @@ export class SocialService {
         scopes: true,
         expiresAt: true,
         createdAt: true,
+        refreshError: true,
+        refreshFailedAt: true,
       },
       orderBy: { createdAt: 'desc' },
     });
@@ -228,13 +232,31 @@ export class SocialService {
             refreshToken: updated.refreshToken ? encrypt(updated.refreshToken) : account.refreshToken,
             expiresAt: updated.expiresAt ?? account.expiresAt,
             scopes: updated.scopes ?? account.scopes,
+            refreshError: null,
+            refreshFailedAt: null,
           },
         });
         count++;
       } catch (err: any) {
+        const message = String(err?.message ?? err).slice(0, 500);
         this.logger.warn(
-          `Refresh failed for ${account.provider} account ${account.id}: ${err?.message ?? err}`,
+          `Refresh failed for ${account.provider} account ${account.id}: ${message}`,
         );
+        // Only notify the first time we detect the failure — avoid spamming admins
+        // every hour while the account stays broken.
+        const wasHealthy = !account.refreshError;
+        await this.prisma.socialAccount.update({
+          where: { id: account.id },
+          data: { refreshError: message, refreshFailedAt: new Date() },
+        });
+        if (wasHealthy) {
+          await this.notifications.notifyAdmins(account.tenantId, {
+            type: 'social.account.reauth_required',
+            title: `Reconnexion requise — ${account.provider}`,
+            body: `Le compte ${account.displayName ?? account.providerUserId} (${account.provider}) ne peut plus être rafraîchi : ${message}. Reconnectez-le pour continuer à publier.`,
+            link: '/accounts',
+          });
+        }
       }
     }
     return count;
