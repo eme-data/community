@@ -54,6 +54,8 @@ async function main() {
   }
 
   // --- User -----------------------------------------------------------
+  // Demo user is also marked as platform super-admin so they can access
+  // /settings/providers and configure OAuth credentials from the UI.
   let user = await prisma.user.findUnique({ where: { email: DEMO_EMAIL } });
   if (!user) {
     user = await prisma.user.create({
@@ -62,12 +64,13 @@ async function main() {
         name: 'Demo Owner',
         passwordHash,
         emailVerifiedAt: new Date(),
+        isSuperAdmin: true,
       },
     });
   } else {
     user = await prisma.user.update({
       where: { id: user.id },
-      data: { passwordHash, emailVerifiedAt: new Date() },
+      data: { passwordHash, emailVerifiedAt: new Date(), isSuperAdmin: true },
     });
   }
 

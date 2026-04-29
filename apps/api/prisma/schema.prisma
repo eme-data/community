@@ -100,6 +100,10 @@ model User {
   name               String?
   emailVerifiedAt    DateTime?
 
+  // Platform-level super admin — can configure OAuth provider credentials,
+  // global settings, etc. Distinct from per-tenant Membership.role.
+  isSuperAdmin       Boolean             @default(false)
+
   // Two-factor (TOTP). Secret is encrypted with TOKEN_ENCRYPTION_KEY.
   totpSecret         String?
   totpEnabledAt      DateTime?
@@ -111,6 +115,26 @@ model User {
   emailVerifications EmailVerification[]
   passwordResets     PasswordReset[]
   backupCodes        BackupCode[]
+}
+
+// Platform-wide OAuth credentials for one social provider. Stored once for
+// the whole instance (the SaaS operator), not per-tenant: every client uses
+// the same OAuth app the operator registered with each network.
+//
+// `values` holds key/value pairs (CLIENT_ID, CLIENT_SECRET, REDIRECT_URI…).
+// Secrets are AES-256-GCM encrypted; their key names appear in `encryptedKeys`.
+//
+// At runtime, ProviderEnvService merges this row with process.env (DB wins),
+// so an instance with no DB row falls back to the legacy .env-based config.
+model ProviderConfig {
+  id              String         @id @default(cuid())
+  provider        SocialProvider @unique
+  values          Json           @default("{}")
+  encryptedKeys   String[]       @default([])
+  isActive        Boolean        @default(true)
+  updatedByUserId String?
+  updatedAt       DateTime       @updatedAt
+  createdAt       DateTime       @default(now())
 }
 
 model BackupCode {

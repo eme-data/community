@@ -10,6 +10,7 @@ import {
   PublishInput,
   PublishResult,
 } from './social-provider.interface';
+import { ProviderEnvService } from '../../provider-env/provider-env.service';
 
 const AUTHORIZE_URL = 'https://twitter.com/i/oauth2/authorize';
 const TOKEN_URL = 'https://api.twitter.com/2/oauth2/token';
@@ -26,6 +27,8 @@ const pkceStore = new Map<string, string>();
 export class TwitterProvider implements SocialProvider {
   readonly key = 'TWITTER' as const;
   private readonly logger = new Logger(TwitterProvider.name);
+
+  constructor(private readonly env: ProviderEnvService) {}
 
   buildAuthorizeUrl(input: { tenantId: string; userId: string }): OAuthAuthorizeUrl {
     const state = `${input.tenantId}:${input.userId}:${randomBytes(8).toString('hex')}`;
@@ -138,9 +141,7 @@ export class TwitterProvider implements SocialProvider {
   }
 
   private requireEnv(name: string): string {
-    const v = process.env[name];
-    if (!v) throw new Error(`Missing env var ${name}`);
-    return v;
+    return this.env.require(name);
   }
 }
 

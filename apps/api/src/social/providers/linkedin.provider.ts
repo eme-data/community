@@ -11,6 +11,7 @@ import {
   PublishInput,
   PublishResult,
 } from './social-provider.interface';
+import { ProviderEnvService } from '../../provider-env/provider-env.service';
 
 const REFRESH_AHEAD_MS = 1000 * 60 * 60 * 24 * 7; // refresh if expiring within 7 days
 
@@ -147,8 +148,6 @@ export class LinkedInProvider implements SocialProvider {
   }
 
   private requireEnv(name: string): string {
-    const v = process.env[name];
-    if (!v) throw new Error(`Missing env var ${name}`);
-    return v;
+    return this.env.require(name);
   }
 }

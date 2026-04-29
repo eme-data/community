@@ -6,6 +6,7 @@ import { RolesGuard } from '../auth/roles.guard';
 import { Roles } from '../auth/roles.decorator';
 import { CurrentUser, AuthUser } from '../auth/current-user.decorator';
 import { SocialService } from './social.service';
+import { ProviderEnvService } from '../provider-env/provider-env.service';
 
 const PROVIDER_PATH: Record<string, SocialProvider> = {
   linkedin: 'LINKEDIN',
@@ -24,22 +25,25 @@ const PROVIDER_ENV_VARS: Record<string, string[]> = {
   TWITTER: ['TWITTER_CLIENT_ID', 'TWITTER_CLIENT_SECRET', 'TWITTER_REDIRECT_URI'],
 };
 
-function missingEnvVars(provider: SocialProvider): string[] {
+function missingEnvVars(provider: SocialProvider, env: ProviderEnvService): string[] {
   const required = PROVIDER_ENV_VARS[provider] ?? [];
-  return required.filter((name) => !process.env[name]);
+  return env.missing(required);
 }
 
 @Controller('social')
 export class SocialController {
-  constructor(private readonly social: SocialService) {}
+  constructor(
+    private readonly social: SocialService,
+    private readonly env: ProviderEnvService,
+  ) {}
 
   @Get('providers/status')
   @UseGuards(JwtAuthGuard)
   providersStatus() {
     return Object.entries(PROVIDER_PATH).map(([slug, key]) => ({
       provider: slug,
-      configured: missingEnvVars(key).length === 0,
-      missing: missingEnvVars(key),
+      configured: missingEnvVars(key, this.env).length === 0,
+      missing: missingEnvVars(key, this.env),
     }));
   }
 
@@ -85,7 +89,7 @@ export class SocialController {
     const key = PROVIDER_PATH[provider];
     if (!key) throw new BadRequestException('Unknown provider');
 
-    const missing = missingEnvVars(key);
+    const missing = missingEnvVars(key, this.env);
     if (missing.length) {
       // 503 = "service not configured yet". The frontend surfaces the
       // missing env vars so the operator knows exactly what to add.

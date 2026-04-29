@@ -25,6 +25,8 @@ import { ApiKeysModule } from './api-keys/api-keys.module';
 import { MetricsModule } from './metrics/metrics.module';
 import { WebhooksModule } from './webhooks/webhooks.module';
 import { NotificationsModule } from './notifications/notifications.module';
+import { ProviderEnvModule } from './provider-env/provider-env.module';
+import { AdminModule } from './admin/admin.module';
 import { HealthController } from './health.controller';
 
 @Module({

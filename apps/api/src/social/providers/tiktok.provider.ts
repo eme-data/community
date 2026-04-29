@@ -12,6 +12,7 @@ import {
   PublishInput,
   PublishResult,
 } from './social-provider.interface';
+import { ProviderEnvService } from '../../provider-env/provider-env.service';
 
 const REFRESH_AHEAD_MS = 1000 * 60 * 60 * 24; // TikTok access tokens are short-lived (24h)
 
@@ -35,6 +36,7 @@ export class TikTokProvider implements SocialProvider {
   constructor(
     private readonly prisma: PrismaService,
     private readonly media: MediaService,
+    private readonly env: ProviderEnvService,
   ) {}
 
   buildAuthorizeUrl(input: { tenantId: string; userId: string }): OAuthAuthorizeUrl {
@@ -161,8 +163,6 @@ export class TikTokProvider implements SocialProvider {
   }
 
   private requireEnv(name: string): string {
-    const v = process.env[name];
-    if (!v) throw new Error(`Missing env var ${name}`);
-    return v;
+    return this.env.require(name);
   }
 }

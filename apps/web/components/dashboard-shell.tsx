@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import clsx from 'clsx';
-import { setToken } from '@/lib/api';
+import { api, setToken } from '@/lib/api';
 import { TenantSwitcher } from './tenant-switcher';
 import { NotificationBell } from './notification-bell';
 
@@ -94,6 +94,13 @@ const navGroups: NavGroup[] = [
   },
 ];
 
+const adminGroup: NavGroup = {
+  label: 'Administration plateforme',
+  items: [
+    { href: '/settings/providers', label: 'Providers OAuth', icon: KEY },
+  ],
+};
+
 interface BrandedTenant {
   brandName?: string | null;
   logoMediaId?: string | null;
@@ -115,6 +122,12 @@ export function DashboardShell({ children }: { children: ReactNode }) {
     };
     window.addEventListener('community:tenant-changed', handler);
     return () => window.removeEventListener('community:tenant-changed', handler);
+  }, []);
+
+  useEffect(() => {
+    api<{ isSuperAdmin?: boolean }>('/users/me')
+      .then((u) => setIsSuperAdmin(!!u?.isSuperAdmin))
+      .catch(() => setIsSuperAdmin(false));
   }, []);
 
   useEffect(() => {
@@ -160,7 +173,7 @@ export function DashboardShell({ children }: { children: ReactNode }) {
         </Link>
       </div>
       <nav className="flex-1 overflow-y-auto px-3 py-4 space-y-6">
-        {navGroups.map((group) => (
+        {[...navGroups, ...(isSuperAdmin ? [adminGroup] : [])].map((group) => (
           <div key={group.label}>
             <p className="px-3 mb-2 text-[11px] font-semibold uppercase tracking-wider text-slate-500">
               {group.label}

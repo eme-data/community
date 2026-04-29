@@ -13,6 +13,7 @@ import {
   PublishInput,
   PublishResult,
 } from './social-provider.interface';
+import { ProviderEnvService } from '../../provider-env/provider-env.service';
 
 const VERSION = process.env.META_GRAPH_VERSION || 'v21.0';
 const AUTHORIZE_URL = `https://www.facebook.com/${VERSION}/dialog/oauth`;
@@ -37,6 +38,7 @@ export class MetaProvider implements SocialProvider {
   constructor(
     protected readonly prisma: PrismaService,
     protected readonly media: MediaService,
+    protected readonly env: ProviderEnvService,
     key: 'FACEBOOK' | 'INSTAGRAM' = 'FACEBOOK',
   ) {
     this.key = key;
@@ -245,22 +247,20 @@ export class MetaProvider implements SocialProvider {
   }
 
   private requireEnv(name: string): string {
-    const v = process.env[name];
-    if (!v) throw new Error(`Missing env var ${name}`);
-    return v;
+    return this.env.require(name);
   }
 }
 
 @Injectable()
 export class FacebookProvider extends MetaProvider {
-  constructor(prisma: PrismaService, media: MediaService) {
-    super(prisma, media, 'FACEBOOK');
+  constructor(prisma: PrismaService, media: MediaService, env: ProviderEnvService) {
+    super(prisma, media, env, 'FACEBOOK');
   }
 }
 
 @Injectable()
 export class InstagramProvider extends MetaProvider {
-  constructor(prisma: PrismaService, media: MediaService) {
-    super(prisma, media, 'INSTAGRAM');
+  constructor(prisma: PrismaService, media: MediaService, env: ProviderEnvService) {
+    super(prisma, media, env, 'INSTAGRAM');
   }
 }
